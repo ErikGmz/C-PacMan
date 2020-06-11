@@ -6,6 +6,7 @@
 #include <allegro5/allegro_acodec.h>
 #include <allegro5/allegro_native_dialog.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
@@ -14,14 +15,21 @@ struct Datos {
     int puntaje;
 };
 
+union Mapas {
+    char mapa1[51][46];
+    char mapa2[51][46];
+};
+
 void inicializar_graficos();
 void comenzar_juego(ALLEGRO_DISPLAY*);
 Datos preguntar_nombre(ALLEGRO_DISPLAY*);
 char convertir_letra(ALLEGRO_EVENT);
-bool verificar_cadena(char[]);
+Mapas llenar_mapa1();
+Mapas llenar_mapa2();
+void movimiento_pacman(Mapas, Mapas);
 void continuar();
 void checar_records();
-void movimiento_pacman();
+
 
 int main(int argc, char** argv) {
     srand(time(NULL));
@@ -42,9 +50,6 @@ int main(int argc, char** argv) {
     ALLEGRO_BITMAP* opcion2 = al_load_bitmap("img/continuar.png");
     ALLEGRO_BITMAP* opcion3 = al_load_bitmap("img/records.png");
     ALLEGRO_BITMAP* opcion4 = al_load_bitmap("img/salir.png");
-    //ALLEGRO_BITMAP* mapa1 = al_load_bitmap("img/Mapa1A.png");
-    //ALLEGRO_BITMAP* mapa2 = al_load_bitmap("img/Mapa1B.png");
-    //ALLEGRO_BITMAP* mapa3 = al_load_bitmap("img/Mapa2.png");
     ALLEGRO_EVENT_QUEUE* fila_evento = al_create_event_queue();
 
     al_reserve_samples(3);
@@ -155,9 +160,13 @@ void inicializar_graficos() {
 
 void comenzar_juego(ALLEGRO_DISPLAY* pantalla) {
     Datos jugador;
+    Mapas primero, segundo;
 
     jugador = preguntar_nombre(pantalla);
-    movimiento_pacman();
+    primero = llenar_mapa1();
+    segundo = llenar_mapa2();
+
+    movimiento_pacman(primero, segundo);
 }
 
 Datos preguntar_nombre(ALLEGRO_DISPLAY* pantalla) {
@@ -277,21 +286,137 @@ char convertir_letra(ALLEGRO_EVENT evento) {
     return letra;
 }
 
-void continuar() {
+Mapas llenar_mapa1() {
+    Mapas tablero;
+    char mapa[51][46] =
+    {"*********************************************",  
+     "*                    ***                    *",
+     "*                    ***                    *",
+     "*                    ***                    *",
+     "*   **   *****    *********    *****   **   *",
+     "*   **   *****    *********    *****   **   *",
+     "*   **   *****    *********    *****   **   *",
+     "*                                           *",
+     "*                                           *",
+     "*                                           *",
+     "*   ***************   *   ***************   *",
+     "*   ***************   *   ***************   *",
+     "*   **      **                 **      **   *",
+     "*   **      **                 **      **   *",
+     "*   **      **                 **      **   *",
+     "*********   **     *******     **   *********",
+     "        *   **     *******     **   *        ",
+     "        *                           *        ",
+     "        *                           *        ",
+     "        *                           *        ",
+     "        *   **   ***********   **   *        ",
+     "*********        *         *        *********",
+     "                 *         *                 ",
+     "                 *         *                 ",
+     "                 *         *                 ",
+     "*********   **   ***********   **   *********",
+     "        *   **                 **   *        ",
+     "        *   **                 **   *        ",
+     "        *   **                 **   *        ",
+     "        *   **   ***********   **   *        ",
+     "*********   **   ***********   **   *********",
+     "*                     *                     *",
+     "*                     *                     *",
+     "*                     *                     *",
+     "*  ******   *******   *   *******   ******  *",
+     "*  ******   *******   *   *******   ******  *",
+     "*      **                           **      *",
+     "*      **                           **      *",
+     "*      **                           **      *",
+     "****   **   *********   *********   **   ****",
+     "****   **   *********   *********   **   ****",
+     "*      **   ***                **   **      *",
+     "*      **   ***                **   **      *",
+     "*      **   ***                **   **      *",
+     "*  ******   *******   *   *******   ******  *",
+     "*                     *                     *",
+     "*                     *                     *",
+     "*                     *                     *",
+     "*********************************************"
+    };
 
+    for (int i = 0; i < 51; i++) {
+        strcpy_s(*(tablero.mapa1 + i), 46, mapa[i]);
+    }
+    return tablero;
 }
 
-void checar_records() {
+Mapas llenar_mapa2() {
+    Mapas tablero;
+    char mapa[51][46] =
+    {"*********************************************", 
+     "*                    ***                    *",
+     "*                    ***                    *",
+     "*******              ***              *******",
+     "            **    *********    **            ",
+     "            **    *********    **            ",
+     "            **    *********    **            ",
+     "*******                               *******",
+     "*                                           *",
+     "*                                           *",
+     "*   ***************   *   ***************   *",
+     "*   ***************   *   ***************   *",
+     "*   **      **                 **      **   *",
+     "*   **      **                 **      **   *",
+     "*   **      **                 **      **   *",
+     "*********   **     *******     **   *********",
+     "*********   **     *******     **   *********",
+     "*                                           *",
+     "*                                           *",
+     "*   *****   **                 **   *****   *",
+     "*   *****   **   ***********   **   *****   *",
+     "*      **   **   *         *   **   **      *",
+     "*      **        *         *        **      *",
+     "*      **        *         *        **      *",
+     "*      **        *         *        **      *",
+     "*   *****   **   ***********   **   *****   *",
+     "*   *****   **                 **   *****   *",
+     "            **                 **           *",
+     "            **                 **           *",
+     "*********   **   ***********   **   *********",
+     "*********   **   ***********   **   *********",
+     "*   **                *                **   *",
+     "*   **                *                **   *",
+     "*   **                *                **   *",
+     "*   **      *******   *   *******      **   *",
+     "*           *******   *   *******           *",
+     "*                     *                     *",
+     "*******               *               *******",
+     "                      *                      ",
+     "            *********************            ",
+     "            *********************            ",
+     "            **                 **            ",
+     "*******     **                 **     *******",
+     "*           **                 **           *",
+     "*           *******       *******           *",
+     "*   **      *******       *******      **   *",
+     "*   **                                 **   *",
+     "*   **                                 **   *",
+     "*   **                                 **   *",
+     "*********************************************",
+    };
 
+    for (int i = 0; i < 51; i++) {
+        strcpy_s(*(tablero.mapa2 + i), 46, mapa[i]);
+    }
+    return tablero;
 }
 
-void movimiento_pacman() {
+
+void movimiento_pacman(Mapas primero, Mapas segundo) {
     enum { abajo = 0, arriba = 4, izquierda = 8, derecha = 12 };
     char nombre_archivo[30], numero[3];
-    int coord_x = 300, coord_y = 300, velocidad = 5, animacion = 0, direccion = abajo, direccion_previa = abajo;
+    int coord_x = 86, coord_y = 90, velocidad = 5, animacion = 0, direccion = abajo, direccion_previa = abajo;
     bool terminado = false;
 
     ALLEGRO_BITMAP* pacman[24];
+    ALLEGRO_BITMAP* mapa1 = al_load_bitmap("img/mapa1B.png");
+    ALLEGRO_BITMAP* mapa2 = al_load_bitmap("img/mapa2.png");
     ALLEGRO_EVENT_QUEUE* fila_evento = al_create_event_queue();
     ALLEGRO_TIMER* temporizador = al_create_timer(1.0 / 15);
 
@@ -337,16 +462,16 @@ void movimiento_pacman() {
             direccion_previa = direccion;
             switch (direccion) {
             case abajo:
-                if (coord_y < 570) coord_y += velocidad;
+                if (primero.mapa1[((coord_y - 80) / 10) + 1][(coord_x - 76) / 10] != '*' && ((coord_y - 80) / 10) + 1 <= 50) coord_y += velocidad;
                 break;
             case arriba:
-                if (coord_y > 0) coord_y -= velocidad;
+                if (primero.mapa1[((coord_y - 80) / 10) - 1][(coord_x - 76) / 10] != '*' && ((coord_y - 80) / 10) - 1 >= 0) coord_y -= velocidad;
                 break;
             case izquierda:
-                if (coord_x > 0) coord_x -= velocidad;
+                if (primero.mapa1[(coord_y - 80) / 10][((coord_x - 76) / 10) - 1] != '*' && ((coord_x - 76) / 10) - 1 >= 0) coord_x -= velocidad;
                 break;
             case derecha:
-                if (coord_x < 570) coord_x += velocidad;
+                if (primero.mapa1[(coord_y - 80) / 10][((coord_x - 76) / 10) + 1] != '*' && ((coord_x - 76) / 10) + 1 <= 45) coord_x += velocidad;
                 break;
             }
             animacion++;
@@ -355,7 +480,16 @@ void movimiento_pacman() {
 
         if (animacion > direccion + 3 || direccion != direccion_previa) animacion = direccion;
         al_draw_bitmap(pacman[animacion], coord_x, coord_y, NULL);
+        al_draw_bitmap(mapa1, 76, 80, NULL);
         al_flip_display();
         al_clear_to_color(al_map_rgb(0, 0, 0));
     }
+}
+
+void continuar() {
+
+}
+
+void checar_records() {
+
 }
