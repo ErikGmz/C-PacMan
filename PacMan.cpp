@@ -14,7 +14,7 @@ enum lista { abajo = 0, arriba = 4, izquierda = 8, derecha = 12 };
 
 struct Datos {
     char nombre[7];
-    char codigo[10];
+    char* codigo;
     int puntaje, nivel, vidas, mapa_actual;
 };
 
@@ -29,30 +29,36 @@ union Mapas {
     char mapa[101][101];
 };
 
-
 void inicializar_graficos();
-void comenzar_juego(ALLEGRO_DISPLAY*, ALLEGRO_SAMPLE*, ALLEGRO_SAMPLE_ID);
+void comenzar_juego(ALLEGRO_DISPLAY*, ALLEGRO_SAMPLE*, ALLEGRO_SAMPLE_ID, FILE*);
 Datos preguntar_nombre(ALLEGRO_DISPLAY*);
 char convertir_letra(ALLEGRO_EVENT);
 Mapas llenar_mapa1();
 Mapas llenar_mapa2();
-void movimiento_pacman(char* mapa[], Datos& jugador, Movimiento& juego, int velocidad);
+bool movimiento_pacman(char* mapa[], Datos& jugador, Movimiento& juego, int velocidad);
+char* generar_codigo();
+char letras_aleatorias();
 void continuar();
-void checar_records();
+void checar_records(ALLEGRO_DISPLAY*, FILE*);
 
 int main(int argc, char** argv) {
     srand(time(NULL));
     inicializar_graficos();
     bool salir = false, empezar = false, sonido = true, reanudar;
     int x = 0, y = 0;
+    char* codigo = generar_codigo();
+
+    FILE* registro = fopen("registro.dat", "rb");
+    if (!registro) registro = fopen("registro.dat", "ab");
+    fclose(registro);
     
     ALLEGRO_DISPLAY* pantalla = al_create_display(600, 600);
-    ALLEGRO_FONT* formato = al_load_ttf_font("04B_30__.ttf", 17, NULL);
     ALLEGRO_SAMPLE* opcion = al_load_sample("sounds/selection.mp3");
     ALLEGRO_SAMPLE* click = al_load_sample("sounds/click.mp3");
     ALLEGRO_SAMPLE* OST = al_load_sample("sounds/Mega Man 3 (NES) Music Title Theme.mp3");
     ALLEGRO_SAMPLE_ID id;
     ALLEGRO_BITMAP* pantalla_inicio = al_load_bitmap("img/pantInicioa.png");
+    ALLEGRO_BITMAP* icono = al_load_bitmap("img/sprites/fruits/cherry.png");
     ALLEGRO_BITMAP* boton_A = al_load_bitmap("img/presiona.png");
     ALLEGRO_BITMAP* menu = al_load_bitmap("img/t2.png");
     ALLEGRO_BITMAP* opcion1 = al_load_bitmap("img/iniciar.png");
@@ -65,6 +71,8 @@ int main(int argc, char** argv) {
     al_register_event_source(fila_evento, al_get_keyboard_event_source());
     al_register_event_source(fila_evento, al_get_mouse_event_source());
     al_register_event_source(fila_evento, al_get_display_event_source(pantalla));
+    al_set_window_title(pantalla, "PacMan");
+    al_set_display_icon(pantalla, icono);
 
     al_draw_bitmap(pantalla_inicio, 13, 30, NULL);
     al_draw_bitmap(boton_A, 232, 380, NULL);
@@ -81,6 +89,11 @@ int main(int argc, char** argv) {
             if (evento.keyboard.keycode == ALLEGRO_KEY_A) {
                 al_play_sample(click, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
                 empezar = true;
+
+                al_rest(0.3);
+                al_clear_to_color(al_map_rgb(0, 0, 0));
+                al_flip_display();
+                al_rest(0.3);
             }
             break;
         case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
@@ -129,15 +142,27 @@ int main(int argc, char** argv) {
         case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
             if (x > 232 && x < 360 && y > 280 && y < 312) {
                 al_play_sample(click, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
-                comenzar_juego(pantalla, OST, id);
+                al_rest(0.3);
+                al_clear_to_color(al_map_rgb(0, 0, 0));
+                al_flip_display();
+                al_rest(0.3);
+                comenzar_juego(pantalla, OST, id, registro);
             }
             if (x > 212 && x < 388 && y > 340 && y < 372) {
                 al_play_sample(click, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
+                al_rest(0.3);
+                al_clear_to_color(al_map_rgb(0, 0, 0));
+                al_flip_display();
+                al_rest(0.3);
                 continuar();
             }
             if (x > 225 && x < 373 && y > 400 && y < 432) {
                 al_play_sample(click, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
-                checar_records();
+                al_rest(0.3);
+                al_clear_to_color(al_map_rgb(0, 0, 0));
+                al_flip_display();
+                al_rest(0.3);
+                checar_records(pantalla, registro);
             }
             if (x > 249 && x < 343 && y > 460 && y < 492) {
                 al_play_sample(click, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
@@ -166,14 +191,31 @@ void inicializar_graficos() {
     al_init_acodec_addon();
 }
 
-void comenzar_juego(ALLEGRO_DISPLAY* pantalla, ALLEGRO_SAMPLE* OST, ALLEGRO_SAMPLE_ID id) {
-    Datos jugador;
+void comenzar_juego(ALLEGRO_DISPLAY* pantalla, ALLEGRO_SAMPLE* OST, ALLEGRO_SAMPLE_ID id, FILE* registro) {
+    Datos jugador, auxiliar;
     Movimiento juego;
     Mapas tablero;
     char* mapa[111];
-    bool finalizado = false;
+    bool finalizado = false, nombre_encontrado = false, vida_perdida, reanudar;
     const int velocidad = 5;
+    int puntuacion_previa, continuar_juego, continuar = false;
 
+    FILE* codigos = fopen("constraseñas.dat", "rb+");
+    if (!codigos) {
+        codigos = fopen("constraseñas.dat", "ab");
+        fclose(codigos);
+        codigos = fopen("constraseñas.dat", "rb+");
+    }
+
+    ALLEGRO_SAMPLE* fin_nivel = al_load_sample("sounds/07 - Round Clear.mp3");
+    ALLEGRO_BITMAP* menu = al_load_bitmap("img/t2.png");
+    ALLEGRO_EVENT_QUEUE* fila_evento = al_create_event_queue();
+    ALLEGRO_FONT* formato1 = al_load_ttf_font("fonts/04B_30__.ttf", 18, NULL);
+    ALLEGRO_FONT* formato2 = al_load_ttf_font("fonts/04B_30__.ttf", 15, NULL);
+    ALLEGRO_FONT* formato3 = al_load_ttf_font("fonts/04B_30__.ttf", 13, NULL);
+    al_register_event_source(fila_evento, al_get_keyboard_event_source());
+
+    registro = fopen("registro.dat", "rb+");
     jugador = preguntar_nombre(pantalla);
     jugador.nivel = 1; jugador.vidas = 3;
     jugador.mapa_actual = 1;
@@ -185,24 +227,205 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, ALLEGRO_SAMPLE* OST, ALLEGRO_SAMP
         switch (jugador.mapa_actual) {
         case 1:
             juego.coord_y = 347;
-            
             tablero = llenar_mapa1(); 
             break;
         case 2: 
-            juego.coord_y = 352;
+            juego.coord_y = 363;
             tablero = llenar_mapa2(); 
             break;
         }
         juego.coord_x = 287;
         juego.animacion = 0;
         juego.continuar_nivel = true;
+        juego.direccion = abajo;
+        juego.direccion_previa = abajo;
+        jugador.codigo = new char[7];
+        vida_perdida = false;
+        continuar_juego = 0;
 
         for (int i = 0; i < 111; i++) {
             *(mapa + i) = tablero.mapa[i];;
         }
 
-        movimiento_pacman(mapa, jugador, juego, velocidad);
+        puntuacion_previa = jugador.puntaje;
+        vida_perdida = movimiento_pacman(mapa, jugador, juego, velocidad);
+
+        if (!vida_perdida) {
+            jugador.nivel++;
+            al_play_sample(fin_nivel, 0.5, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
+
+            al_rest(2.5);
+            al_clear_to_color(al_map_rgb(0, 0, 0));
+            al_flip_display();
+            al_rest(1.0);
+
+            al_draw_bitmap(menu, 13, 30, NULL);
+            al_draw_text(formato1, al_map_rgb(255, 255, 39), 176, 280, NULL, "NIVEL FINALIZADO");
+            al_draw_text(formato2, al_map_rgb(255, 255, 39), 160, 340, NULL, "SELECCIONE UNA OPCION");
+            al_draw_text(formato2, al_map_rgb(255, 255, 39), 165, 420, NULL, "CONTINUAR");
+            al_draw_text(formato3, al_map_rgb(255, 255, 39), 180, 450, NULL, "TECLA (A)");
+            al_draw_text(formato2, al_map_rgb(255, 255, 39), 320, 420, NULL, "FINALIZAR");
+            al_draw_text(formato3, al_map_rgb(255, 255, 39), 330, 450, NULL, "TECLA (S)");
+            al_flip_display();
+
+            while (continuar_juego != 1 && continuar_juego != 2) {
+                ALLEGRO_EVENT evento;
+                al_wait_for_event(fila_evento, &evento);
+
+                switch (evento.type) {
+                case ALLEGRO_EVENT_KEY_DOWN: 
+                    if (evento.keyboard.keycode == ALLEGRO_KEY_A) continuar_juego = 1;
+                    if (evento.keyboard.keycode == ALLEGRO_KEY_S) continuar_juego = 2;
+                    break;
+                case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT: 
+                    reanudar = false;
+                    while (!reanudar) {
+                        ALLEGRO_EVENT evento2;
+                        al_wait_for_event(fila_evento, &evento2);
+
+                        if (evento2.type == ALLEGRO_EVENT_DISPLAY_SWITCH_IN) {
+
+                            al_draw_bitmap(menu, 13, 30, NULL);
+                            al_draw_text(formato1, al_map_rgb(255, 255, 39), 176, 280, NULL, "NIVEL FINALIZADO");
+                            al_draw_text(formato2, al_map_rgb(255, 255, 39), 160, 340, NULL, "SELECCIONE UNA OPCION");
+                            al_draw_text(formato2, al_map_rgb(255, 255, 39), 165, 420, NULL, "CONTINUAR");
+                            al_draw_text(formato3, al_map_rgb(255, 255, 39), 180, 450, NULL, "TECLA (A)");
+                            al_draw_text(formato2, al_map_rgb(255, 255, 39), 320, 420, NULL, "FINALIZAR");
+                            al_draw_text(formato3, al_map_rgb(255, 255, 39), 330, 450, NULL, "TECLA (S)");
+                            al_flip_display();
+                            reanudar = true;
+                        }
+                    }
+                    break;
+                }
+            }
+            al_clear_to_color(al_map_rgb(0, 0, 0));
+            al_flip_display();
+            al_rest(1.0);
+        }
+        else {
+            jugador.puntaje = puntuacion_previa;
+            al_rest(1.5);
+            al_clear_to_color(al_map_rgb(0, 0, 0));
+            al_flip_display();
+            al_rest(1.0);
+        }
+                       
+        (jugador.nivel % 2 == 0) ? jugador.mapa_actual = 2 : jugador.mapa_actual = 1;
+
+        if (jugador.vidas == 0 || jugador.nivel == 11 || continuar_juego == 2) finalizado = true;
     }
+
+    if (jugador.vidas > 0 && jugador.nivel != 11) {
+        jugador.codigo = generar_codigo();
+    }
+    
+    al_draw_bitmap(menu, 13, 30, NULL);
+    al_draw_text(formato1, al_map_rgb(255, 255, 39), 176, 280, NULL, "JUEGO FINALIZADO");
+    al_draw_text(formato2, al_map_rgb(255, 255, 39), 187, 350, NULL, "PRESIONE LA TECLA");
+    al_draw_text(formato2, al_map_rgb(255, 255, 39), 285, 370, NULL, "(Q)");
+    if (jugador.vidas > 0 && jugador.nivel != 11) {
+        al_draw_text(formato2, al_map_rgb(255, 255, 39), 213, 420, NULL, "LA CLAVE PARA");
+        al_draw_text(formato2, al_map_rgb(255, 255, 39), 170, 440, NULL, "REANUDAR LA PARTIDA");
+        al_draw_text(formato2, al_map_rgb(255, 255, 39), 288, 460, NULL, "ES");
+        al_draw_text(formato2, al_map_rgb(255, 163, 1), 260, 490, NULL, jugador.codigo);
+    }
+    al_flip_display();
+
+    while (!continuar) {
+        ALLEGRO_EVENT evento;
+        al_wait_for_event(fila_evento, &evento);
+
+        switch (evento.type) {
+        case ALLEGRO_EVENT_KEY_DOWN:
+            if (evento.keyboard.keycode == ALLEGRO_KEY_Q) {
+                continuar = true;
+            }
+            break;
+        case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
+            reanudar = false;
+            while (!reanudar) {
+                ALLEGRO_EVENT evento2;
+                al_wait_for_event(fila_evento, &evento2);
+
+                if (evento2.type == ALLEGRO_EVENT_DISPLAY_SWITCH_IN) {
+                    al_draw_bitmap(menu, 13, 30, NULL);
+                    al_draw_text(formato1, al_map_rgb(255, 255, 39), 176, 280, NULL, "JUEGO FINALIZADO");
+                    al_draw_text(formato2, al_map_rgb(255, 255, 39), 187, 350, NULL, "PRESIONE LA TECLA");
+                    al_draw_text(formato2, al_map_rgb(255, 255, 39), 285, 370, NULL, "(Q)");
+                    if (jugador.vidas > 0 && jugador.nivel != 11) {
+                        al_draw_text(formato2, al_map_rgb(255, 255, 39), 213, 420, NULL, "LA CLAVE PARA");
+                        al_draw_text(formato2, al_map_rgb(255, 255, 39), 170, 440, NULL, "REANUDAR LA PARTIDA");
+                        al_draw_text(formato2, al_map_rgb(255, 255, 39), 288, 460, NULL, "ES");
+                        al_draw_text(formato2, al_map_rgb(255, 163, 1), 260, 490, NULL, jugador.codigo);
+                    }
+                    al_flip_display();
+                    reanudar = true;
+                }
+            }
+            break;
+        }
+    }
+
+    al_rest(0.3);
+    al_clear_to_color(al_map_rgb(0, 0, 0));
+    al_flip_display();
+    al_rest(0.3);
+
+    if (jugador.vidas > 0 && jugador.nivel != 11) {
+        fseek(codigos, 0, SEEK_END);
+        if (ftell(codigos) == 0) {
+            fwrite(&jugador, sizeof(Datos), 1, codigos);
+        }
+        else {
+            fseek(codigos, 0, SEEK_SET);
+            fread(&auxiliar, sizeof(Datos), 1, codigos);
+            while (!feof(codigos)) {
+                if (strcmp(auxiliar.nombre, jugador.nombre) == 0) {
+                    nombre_encontrado = true;
+                    fseek(codigos, ftell(codigos) - sizeof(Datos), SEEK_SET);
+                    fwrite(&jugador, sizeof(Datos), 1, codigos);
+                    break;
+                }
+                fread(&auxiliar, sizeof(Datos), 1, codigos);
+            }
+
+            if (!nombre_encontrado) {
+                fseek(codigos, 0, SEEK_END);
+                fwrite(&jugador, sizeof(Datos), 1, codigos);
+            }
+        }
+    }
+    rewind(codigos);
+    fclose(codigos);
+    nombre_encontrado = false;
+
+    fseek(registro, 0, SEEK_END);
+    if (ftell(registro) == 0) {
+        fwrite(&jugador, sizeof(Datos), 1, registro);
+    }
+    else {
+        fseek(registro, 0, SEEK_SET);
+        fread(&auxiliar, sizeof(Datos), 1, registro);
+        while (!feof(registro)) {
+            if (strcmp(auxiliar.nombre, jugador.nombre) == 0) {
+                nombre_encontrado = true;
+                if (jugador.puntaje > auxiliar.puntaje) {
+                    fseek(registro, ftell(registro) - sizeof(Datos), SEEK_SET);
+                    fwrite(&jugador, sizeof(Datos), 1, registro);
+                }
+                break;
+            }
+            fread(&auxiliar, sizeof(Datos), 1, registro);
+        }
+
+        if (!nombre_encontrado) {
+            fseek(registro, 0, SEEK_END);
+            fwrite(&jugador, sizeof(Datos), 1, registro);
+        }
+    }
+    rewind(registro);
+    fclose(registro);
 }
 
 Datos preguntar_nombre(ALLEGRO_DISPLAY* pantalla) {
@@ -316,6 +539,11 @@ Datos preguntar_nombre(ALLEGRO_DISPLAY* pantalla) {
         }
     }
 
+    al_rest(0.3);
+    al_clear_to_color(al_map_rgb(0, 0, 0));
+    al_flip_display();
+    al_rest(0.5);
+
     jugador.puntaje = 0;
     strcpy_s(jugador.nombre, 7, cadena);
 
@@ -345,101 +573,101 @@ char convertir_letra(ALLEGRO_EVENT evento) {
 Mapas llenar_mapa1() {
     Mapas tablero;
     char mapa[101][101] =
-    {"     ******************************************************************************************     ",
-     "     ******************************************************************************************     ",
-     "     ******************************************************************************************     ",
-     "     ******************************************************************************************     ",
-     "     ***o    o    o   o   o   o    o    o   o********o   o    o    o   o   o   o   o    o******     ",
-     "     *** ********* **************** ************************** **************** ******** ******     ",
-     "     *** ********* **************** ************************** **************** ******** ******     ",
-     "     *** ********* **************** ************************** **************** ******** ******     ",
-     "     ***o*********o****************o**************************o****************o********o******     ",
-     "     *** ********* **************** ************************** **************** ******** ******     ",
-     "     *** ********* **************** ************************** **************** ******** ******     ",
-     "     *** ********* **************** ************************** **************** ******** ******     ",
-     "     ***o*********o****************o**************************o****************o********o******     ",
-     "     *** ********* **************** ************************** **************** ******** ******     ",
-     "     *** ********* **************** ************************** **************** ******** ******     ",
-     "     *** ********* **************** ************************** **************** ******** ******     ",
-     "     *** ********* **************** ************************** **************** ******** ******     ",
-     "     ***o    o    o   o   o   o    o    o   o    o   o   o    o    o   o   o   o   o    o******     ",
-     "     *** *********************************** ******** ********************************** ******     ",
-     "     *** *********************************** ******** ********************************** ******     ",
-     "     *** *********************************** ******** ********************************** ******     ",
-     "     *** *********************************** ******** ********************************** ******     ",
-     "     ***o***********************************o********o**********************************o******     ",
-     "     *** *********************************** ******** ********************************** ******     ",
-     "     *** *********************************** ******** ********************************** ******     ",
-     "     *** *********************************** ******** ********************************** ******     ",
-     "     ***o*********o     o******************* ******** ******************o     o*********o******     ",
-     "     ******************* *********o    o    o    o   o    o    o******** **********************     ",
-     "     ******************* ********* **** ****************** **** ******** **********************     ",
-     "     ******************* ********* **** ****************** **** ******** **********************     ",
-     "     ******************* ********* **** ****************** **** ******** **********************     ",
-     "     *******************o*********o     ******************     o********o**********************     ",
-     "     ******************* ********* **** ****************** **** ******** **********************     ",
-     "                     *** ********* **** ****************** **** ******** *****                      ",
-     "                     *** ********* **** ****************** **** ******** *****                      ",
-     "                     *** ********* **** ****************** **** ******** *****                      ",
-     "                     ***o    o    o                            o    o   o*****                      ",
-     "                     *** ********* ************** ************* ******** *****                      ",
-     "                     *** ********* ************** ************* ******** *****                      ",
-     "                     *** ********* ************** ************* ******** *****                      ",
-     "                     *** ********* ************** ************* ******** *****                      ",
-     "                     ***o********* ************** ************* ********o*****                      ",
-     "                     *** ********* **************************** ******** *****                      ",
-     "************************ ********* **************************** ******** ***************************",
-     "************************ ********* ****                   ***** ******** ***************************",
-     "************************ ********* ****                   ***** ******** ***************************",
-     "*       o   o   o   o   o          ****                   *****         o   o   o   o   o          *",
-     "************************ ********* ****                   ***** ******** ***************************",
-     "************************ ********* ****                   ***** ******** ***************************",
-     "     ******************* ********* ****                   ***** ******** **********************     ",
-     "     ******************* ********* ****                   ***** ******** **********************     ",
-     "     *******************o********* ****                   ***** ********o**********************     ",
-     "     ******************* ********* ****                   ***** ******** **********************     ",
-     "     ******************* ********* **************************** ******** **********************     ",
-     "                     *** ********* **************************** ******** *****                      ",
-     "                     *** *********                              ******** *****                      ",
-     "                     ***o********* **************************** ********o*****                      ",
-     "                     *** ********* **************************** ******** *****                      ",
-     "                     *** ********* **************************** ******** *****                      ",
-     "                     *** ********* **************************** ******** *****                      ",
-     "                     *** ********* **************************** ********o*****                      ",
-     "                     ***o********* **************************** ******** *****                      ",
-     "     ******************* ********* **************************** ******** **********************     ",
-     "     ******************* ********* **************************** ******** **********************     ",
-     "     ******************* ********* **************************** ******** **********************     ",
-     "     ***o    o    o     o    o    o    o    o********o    o    o   o    o     o    o    o******     ",
-     "     *** *************** ******************* ******** ****************** *************** ******     ",
-     "     *** *************** ******************* ******** ****************** *************** ******     ",
-     "     *** *************** ******************* ******** ****************** *************** ******     ",
-     "     *** *************** ******************* ******** ****************** *************** ******     ",
-     "     ***o***************o*******************o********o******************o***************o******     ",
-     "     *** *************** ******************* ******** ****************** *************** ******     ",
-     "     *** *************** ******************* ******** ****************** *************** ******     ",
-     "     *** *************** ******************* ******** ****************** *************** ******     ",
-     "     ***o     o*********o    o    o    o    o   o    o    o    o   o    o*********o     o******     ",
-     "     ********* ********* *********************** *********************** ********* ************     ",
-     "     ********* ********* *********************** *********************** ********* ************     ",
-     "     ********* ********* *********************** *********************** ********* ************     ",
-     "     ********* ********* *********************** *********************** ********* ************     ",
-     "     *********o*********o***********************o***********************o*********o************     ",
-     "     ********* ********* *********************** *********************** ********* ************     ",
-     "     ********* ********* *********************** *********************** ********* ************     ",
-     "     ********* ********* *********************** *********************** ********* ************     ",
-     "     ********* ********* *********************** *********************** ********* ************     ",
-     "     ***o     o*********o*********o    o    o   o    o   o    o*********o*********o     o******     ",
-     "     *** *************** ******************* ******** ****************** *************** ******     ",
-     "     *** *************** ******************* ******** ****************** *************** ******     ",
-     "     *** *************** ******************* ******** ****************** *************** ******     ",
-     "     *** *************** ******************* ******** ****************** *************** ******     ",
-     "     ***o***************o*******************o********o******************o***************o******     ",
-     "     *** *************** ******************* ******** ****************** *************** ******     ",
-     "     *** *************** ******************* ******** ****************** *************** ******     ",
-     "     *** *************** ******************* ******** ****************** *************** ******     ",
-     "     ***o     o    o    o    o    o    o    o   o    o     o   o   o    o    o    o     o******     ",
-     "     ******************************************************************************************     ",
+    {"     *******************************************************************************************    ",
+     "     *******************************************************************************************    ",
+     "     *******************************************************************************************    ",
+     "     *******************************************************************************************    ",
+     "     ***o    o    o   o   o   o    o    o   o********o   o    o    o   o   o   o    o    o******    ",
+     "     *** ********* **************** ************************** **************** ********* ******    ",
+     "     *** ********* **************** ************************** **************** ********* ******    ",
+     "     *** ********* **************** ************************** **************** ********* ******    ",
+     "     ***o*********o****************o**************************o****************o*********o******    ",
+     "     *** ********* **************** ************************** **************** ********* ******    ",
+     "     *** ********* **************** ************************** **************** ********* ******    ",
+     "     *** ********* **************** ************************** **************** ********* ******    ",
+     "     ***o*********o****************o**************************o****************o*********o******    ",
+     "     *** ********* **************** ************************** **************** ********* ******    ",
+     "     *** ********* **************** ************************** **************** ********* ******    ",
+     "     *** ********* **************** ************************** **************** ********* ******    ",
+     "     *** ********* **************** ************************** **************** ********* ******    ",
+     "     ***o    o    o   o   o   o    o    o   o    o   o   o    o    o   o   o   o    o    o******    ",
+     "     *** *********************************** ******** *********************************** ******    ",
+     "     *** *********************************** ******** *********************************** ******    ",
+     "     *** *********************************** ******** *********************************** ******    ",
+     "     *** *********************************** ******** *********************************** ******    ",
+     "     ***o***********************************o********o***********************************o******    ",
+     "     *** *********************************** ******** *********************************** ******    ",
+     "     *** *********************************** ******** *********************************** ******    ",
+     "     *** *********************************** ******** *********************************** ******    ",
+     "     ***o*********o     o******************* ******** *******************o     o*********o******    ",
+     "     ******************* *********o    o    o    o   o    o    o********* **********************    ",
+     "     ******************* ********* **** ****************** **** ********* **********************    ",
+     "     ******************* ********* **** ****************** **** ********* **********************    ",
+     "     ******************* ********* **** ****************** **** ********* **********************    ",
+     "     *******************o*********o     ******************     o*********o**********************    ",
+     "     ******************* ********* **** ****************** **** ********* **********************    ",
+     "                     *** ********* **** ****************** **** ********* *****                     ",
+     "                     *** ********* **** ****************** **** ********* *****                     ",
+     "                     *** ********* **** ****************** **** ********* *****                     ",
+     "                     ***o    o    o                            o    o    o*****                     ",
+     "                     *** ********* ************** ************* ********* *****                     ",
+     "                     *** ********* ************** ************* ********* *****                     ",
+     "                     *** ********* ************** ************* ********* *****                     ",
+     "                     *** ********* ************** ************* ********* *****                     ",
+     "                     ***o********* ************** ************* *********o*****                     ",
+     "                     *** ********* **************************** ********* *****                     ",
+     "************************ ********* **************************** ********* **************************",
+     "************************ ********* ****                   ***** ********* **************************",
+     "************************ ********* ****                   ***** ********* **************************",
+     "*       o   o   o   o   o          ****                   *****          o   o   o   o   o         *",
+     "************************ ********* ****                   ***** ********* **************************",
+     "************************ ********* ****                   ***** ********* **************************",
+     "     ******************* ********* ****                   ***** ********* **********************    ",
+     "     ******************* ********* ****                   ***** ********* **********************    ",
+     "     *******************o********* ****                   ***** *********o**********************    ",
+     "     ******************* ********* ****                   ***** ********* **********************    ",
+     "     ******************* ********* **************************** ********* **********************    ",
+     "                     *** ********* **************************** ********* *****                     ",
+     "                     *** *********                              ********* *****                     ",
+     "                     ***o********* **************************** *********o*****                     ",
+     "                     *** ********* **************************** ********* *****                     ",
+     "                     *** ********* **************************** ********* *****                     ",
+     "                     *** ********* **************************** ********* *****                     ",
+     "                     *** ********* **************************** *********o*****                     ",
+     "                     ***o********* **************************** ********* *****                     ",
+     "     ******************* ********* **************************** ********* *********************     ",
+     "     ******************* ********* **************************** ********* *********************     ",
+     "     ******************* ********* **************************** ********* *********************     ",
+     "     ***o    o    o     o    o    o    o    o********o    o    o   o     o     o    o    o*****     ",
+     "     *** *************** ******************* ******** ******************* *************** *****     ",
+     "     *** *************** ******************* ******** ******************* *************** *****     ",
+     "     *** *************** ******************* ******** ******************* *************** *****     ",
+     "     *** *************** ******************* ******** ******************* *************** *****     ",
+     "     ***o***************o*******************o********o*******************o***************o*****     ",
+     "     *** *************** ******************* ******** ******************* *************** *****     ",
+     "     *** *************** ******************* ******** ******************* *************** *****     ",
+     "     *** *************** ******************* ******** ******************* *************** *****     ",
+     "     ***o     o*********o    o    o    o    o   o    o    o    o   o     o*********o     o*****     ",
+     "     ********* ********* *********************** ************************ ********* ***********     ",
+     "     ********* ********* *********************** ************************ ********* ***********     ",
+     "     ********* ********* *********************** ************************ ********* ***********     ",
+     "     ********* ********* *********************** ************************ ********* ***********     ",
+     "     *********o*********o***********************o************************o*********o***********     ",
+     "     ********* ********* *********************** ************************ ********* ***********     ",
+     "     ********* ********* *********************** ************************ ********* ***********     ",
+     "     ********* ********* *********************** ************************ ********* ***********     ",
+     "     ********* ********* *********************** ************************ ********* ***********     ",
+     "     ***o     o*********o*********o    o    o   o    o   o    o**********o*********o     o*****     ",
+     "     *** *************** ******************* ******** ******************* *************** *****     ",
+     "     *** *************** ******************* ******** ******************* *************** *****     ",
+     "     *** *************** ******************* ******** ******************* *************** *****     ",
+     "     *** *************** ******************* ******** ******************* *************** *****     ",
+     "     ***o***************o*******************o********o*******************o***************o*****     ",
+     "     *** *************** ******************* ******** ******************* *************** *****     ",
+     "     *** *************** ******************* ******** ******************* *************** *****     ",
+     "     *** *************** ******************* ******** ******************* *************** *****     ",
+     "     *** *************** ******************* ******** ******************* *************** *****     ",
+     "     ***o     o    o    o    o    o    o    o   o    o     o   o   o     o    o    o     o*****     ",
      "     ******************************************************************************************     ",
      "     ******************************************************************************************     ",
      "     ******************************************************************************************     ",
@@ -566,26 +794,29 @@ Mapas llenar_mapa2() {
     return tablero;
 }
 
-
-void movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velocidad) {
-
-    ALLEGRO_BITMAP* pacman[27];
+bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velocidad) {
+    ALLEGRO_BITMAP* pacman[28];
     ALLEGRO_BITMAP* mapa1 = al_load_bitmap("img/mapa1B.png");
     ALLEGRO_BITMAP* mapa2 = al_load_bitmap("img/mapa2.png");
     ALLEGRO_BITMAP* pac_dot = al_load_bitmap("img/sprites/map/pill.png");
     ALLEGRO_BITMAP* negro = al_load_bitmap("img/negro.png");
-    ALLEGRO_BITMAP* icono = al_load_bitmap("img/sprites/ui/life.png"); 
+    ALLEGRO_BITMAP* icono = al_load_bitmap("img/sprites/ui/life.png");
+    ALLEGRO_BITMAP* marcador = al_load_bitmap("img/pacman/ready.png");
     ALLEGRO_EVENT_QUEUE* fila_evento = al_create_event_queue();
     ALLEGRO_TIMER* temporizador = al_create_timer(1.0 / 15);
     ALLEGRO_KEYBOARD_STATE estado_tecla;
     ALLEGRO_SAMPLE* comer = al_load_sample("sounds/waka.mp3");
+    ALLEGRO_SAMPLE* morir = al_load_sample("sounds/pacmandying.mp3");
+    ALLEGRO_SAMPLE* intro = al_load_sample("sounds/intro.mp3");
     ALLEGRO_FONT* formato = al_load_ttf_font("fonts/04B_30__.ttf", 13, NULL);
+    bool indicador, movimiento_activado = true, juego_iniciado = false;
+    int contador = 15, inicializacion = 0;
 
     al_register_event_source(fila_evento, al_get_timer_event_source(temporizador));
     al_register_event_source(fila_evento, al_get_keyboard_event_source());
     al_start_timer(temporizador);
 
-    for (int i = 0; i < 27; i++) {
+    for (int i = 0; i < 28; i++) {
         strcpy_s(juego.nombre_archivo, 30, "img/pacman/pacman");
         sprintf_s(juego.numero, 3, "%i", i + 1);
         strcat_s(juego.nombre_archivo, 30, juego.numero);
@@ -595,6 +826,7 @@ void movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
     }
 
     while (juego.continuar_nivel) {
+        indicador = false;
         ALLEGRO_EVENT evento;
         al_wait_for_event(fila_evento, &evento);
 
@@ -602,25 +834,28 @@ void movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
             al_get_keyboard_state(&estado_tecla);
             juego.direccion_previa = juego.direccion;
 
-            if (al_key_down(&estado_tecla, ALLEGRO_KEY_DOWN)) {
+            if (al_key_down(&estado_tecla, ALLEGRO_KEY_DOWN) && movimiento_activado && juego_iniciado) {
                 if (*(*(mapa + ((juego.coord_y - 70) / 5) + 2) + ((juego.coord_x - 66) / 5) + 5) != '*' && ((juego.coord_y - 70) / 5) + 1 <= 100) juego.direccion = abajo;
             }
-            if (al_key_down(&estado_tecla, ALLEGRO_KEY_UP)) {
+            if (al_key_down(&estado_tecla, ALLEGRO_KEY_UP) && movimiento_activado && juego_iniciado) {
                 if (*(*(mapa + ((juego.coord_y - 70) / 5) - 2) + ((juego.coord_x - 66) / 5) + 5) != '*' && ((juego.coord_y - 70) / 5) - 1 >= 0) juego.direccion = arriba;
             }
-            if (al_key_down(&estado_tecla, ALLEGRO_KEY_LEFT)) {
+            if (al_key_down(&estado_tecla, ALLEGRO_KEY_LEFT) && movimiento_activado && juego_iniciado) {
                 if (*(*(mapa + (juego.coord_y - 70) / 5) + ((juego.coord_x - 66) / 5) - 2 + 5)  != '*' && ((juego.coord_x - 66) / 5) - 1 + 5 >= 0) juego.direccion = izquierda;
             }
-            if (al_key_down(&estado_tecla, ALLEGRO_KEY_RIGHT)) {
+            if (al_key_down(&estado_tecla, ALLEGRO_KEY_RIGHT) && movimiento_activado && juego_iniciado) {
                 if (*(*(mapa + (juego.coord_y - 70) / 5) + ((juego.coord_x - 66) / 5) + 2 + 5) != '*' && ((juego.coord_x - 66) / 5) + 1 + 5 <= 100) juego.direccion = derecha;
             }
-            if (al_key_down(&estado_tecla, ALLEGRO_KEY_ESCAPE)) {
-                juego.continuar_nivel = false;
+            if (al_key_down(&estado_tecla, ALLEGRO_KEY_ESCAPE) && juego_iniciado) {
+                movimiento_activado = false;
+                al_rest(1);
+                al_play_sample(morir, 0.5, 1, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
             }
+            if (!movimiento_activado) contador++;
 
             switch (juego.direccion) {
             case abajo:
-                if (*(*(mapa + ((juego.coord_y - 70) / 5) + 1) + ((juego.coord_x - 66) / 5) + 5) != '*' && ((juego.coord_y - 70) / 5) + 1 <= 100) {
+                if (*(*(mapa + ((juego.coord_y - 70) / 5) + 1) + ((juego.coord_x - 66) / 5) + 5) != '*' && ((juego.coord_y - 70) / 5) + 1 <= 100 && movimiento_activado && juego_iniciado) {
                     juego.coord_y += velocidad;
                     juego.animacion++;
                 }
@@ -629,7 +864,7 @@ void movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
                 }
                 break;
             case arriba:
-                if (*(*(mapa + ((juego.coord_y - 70) / 5) - 1) + ((juego.coord_x - 66) / 5) + 5) != '*' && ((juego.coord_y - 70) / 5) - 1 >= 0) {
+                if (*(*(mapa + ((juego.coord_y - 70) / 5) - 1) + ((juego.coord_x - 66) / 5) + 5) != '*' && ((juego.coord_y - 70) / 5) - 1 >= 0 && movimiento_activado && juego_iniciado) {
                     juego.coord_y -= velocidad;
                     juego.animacion++;
                 }
@@ -638,7 +873,7 @@ void movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
                 }
                 break;
             case izquierda:
-                if (*(*(mapa + (juego.coord_y - 70) / 5) + ((juego.coord_x - 66) / 5) - 1 + 5) != '*' && ((juego.coord_x - 66) / 5) - 1  + 5 >= 0) {
+                if (*(*(mapa + (juego.coord_y - 70) / 5) + ((juego.coord_x - 66) / 5) - 1 + 5) != '*' && ((juego.coord_x - 66) / 5) - 1  + 5 >= 0 && movimiento_activado && juego_iniciado) {
                     juego.coord_x -= velocidad;
                     juego.animacion++;
                 }
@@ -647,7 +882,7 @@ void movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
                 }
                 break;
             case derecha:
-                if (*(*(mapa + (juego.coord_y - 70) / 5) + ((juego.coord_x - 66) / 5) + 1 + 5) != '*' && ((juego.coord_x - 66) / 5) + 1 + 5 <= 100) {
+                if (*(*(mapa + (juego.coord_y - 70) / 5) + ((juego.coord_x - 66) / 5) + 1 + 5) != '*' && ((juego.coord_x - 66) / 5) + 1 + 5 <= 100 && movimiento_activado && juego_iniciado) {
                     juego.coord_x += velocidad;
                     juego.animacion++;
                 }
@@ -656,9 +891,17 @@ void movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
                 }
                 break;
             }
+
+            if (inicializacion == 0) {
+                al_play_sample(intro, 0.5, 1, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
+            }
+            inicializacion++;
+            if (inicializacion == 70) {
+                juego_iniciado = true;
+            }
         }
 
-        if (juego.animacion > juego.direccion + 3 || juego.direccion != juego.direccion_previa) juego.animacion = juego.direccion;
+        if ((juego.animacion > juego.direccion + 3 || juego.direccion != juego.direccion_previa) && movimiento_activado && juego_iniciado) juego.animacion = juego.direccion;
 
         if (*(*(mapa + ((juego.coord_y - 70) / 5)) + ((juego.coord_x - 66) / 5) + 5) == 'o') {
             *(*(mapa + ((juego.coord_y - 70) / 5)) + ((juego.coord_x - 66) / 5) + 5) = ' ';
@@ -668,7 +911,14 @@ void movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
         sprintf_s(juego.cifra, "%i", jugador.puntaje);
         sprintf_s(juego.impresion_nivel, "%i", jugador.nivel);
 
-        al_draw_bitmap(pacman[juego.animacion], juego.coord_x, juego.coord_y, NULL);
+        if (movimiento_activado) {
+            al_draw_bitmap(pacman[juego.animacion], juego.coord_x, juego.coord_y, NULL);
+        }
+        else {
+            al_draw_bitmap(pacman[contador], juego.coord_x, juego.coord_y - 2, NULL);
+            al_rest(0.1);
+        }
+
         (jugador.mapa_actual == 1) ? al_draw_bitmap(mapa1, 75, 80, NULL) : al_draw_bitmap(mapa2, 75, 80, NULL);
         al_draw_bitmap(negro, 6, 79, NULL); 
         al_draw_bitmap(negro, 525, 79, NULL); 
@@ -704,10 +954,11 @@ void movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
 
         switch (jugador.vidas) {
             case 1:
-                al_draw_bitmap(icono, 490, 45, NULL);
+                al_draw_bitmap(icono, 445, 40, NULL);
                 break;
             case 2:
-                al_draw_bitmap(icono, 490, 45, NULL);
+                al_draw_bitmap(icono, 445, 40, NULL);
+                al_draw_bitmap(icono, 470, 40, NULL);
                 break;
             case 3:
                 al_draw_bitmap(icono, 445, 40, NULL);
@@ -718,8 +969,9 @@ void movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
 
         for (int i = 0; i < 101; i++) {
             for (int j = 0; j < 91; j++) {
-                if (*(*(mapa + i) + j) == 'o') {            
-                    al_draw_bitmap(pac_dot, ((j - 5) * 5) + 72, (i * 5) + 76, NULL);
+                if (*(*(mapa + i) + j) == 'o') {     
+                    indicador = true;
+                    (jugador.mapa_actual == 1) ? al_draw_bitmap(pac_dot, ((j - 5) * 5) + 73, (i * 5) + 76, NULL) : al_draw_bitmap(pac_dot, ((j - 5) * 5) + 72, (i * 5) + 76, NULL);
                 }
             }
         }
@@ -743,15 +995,178 @@ void movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
             juego.coord_x = (2 - 5) * 5 + 75;
         }
 
+        if (!juego_iniciado) {
+            if(jugador.mapa_actual == 1 ) al_draw_bitmap(marcador, 253, 255, NULL);
+            else al_draw_bitmap(marcador, 253, 270, NULL);
+        }
+
         al_flip_display();
         al_clear_to_color(al_map_rgb(0, 0, 0));
+
+        if (contador == 27) {
+            jugador.vidas--;
+            return true;
+        }
+
+        if (!indicador) juego.continuar_nivel = false;
+    }
+    return false;
+}
+
+char* generar_codigo() {
+    char * codigo = new char [7];
+
+    for (int i = 0; i < 6; i++) {
+        codigo[i] = letras_aleatorias();
+    }
+    return codigo;
+}
+
+char letras_aleatorias() {
+    int x = rand() % (26) + 1;
+
+    switch (x) {
+    case 1: return 'A'; break; case 2: return 'B'; break; case 3: return 'C'; break;
+    case 4: return 'D'; break; case 5: return 'E'; break; case 6: return 'F'; break;
+    case 7: return 'G'; break; case 8: return 'H'; break; case 9: return 'I'; break;
+    case 10: return 'J'; break; case 11: return 'K'; break; case 12: return 'L'; break;
+    case 13: return 'M'; break; case 14: return 'N'; break; case 15: return 'O'; break;
+    case 16: return 'P'; break; case 17: return 'Q'; break; case 18: return 'R'; break;
+    case 19: return 'S'; break; case 20: return 'T'; break; case 21: return 'U'; break;
+    case 22: return 'V'; break; case 23: return 'W'; break; case 24: return 'X'; break;
+    case 25: return 'Y'; break; case 26: return 'Z'; break; default: return '1';
     }
 }
 
 void continuar() {
-
+    fopen("registro.dat", "rb");
 }
 
-void checar_records() {
+void checar_records(ALLEGRO_DISPLAY* pantalla, FILE* registro) {
+    Datos lista;
+    bool regresar_menu = false, reanudar;
+    int contador = 0, mayor, intercambio;
+    char cifra[9], auxiliar[7];
 
+    ALLEGRO_BITMAP* menu = al_load_bitmap("img/t2.png");
+    ALLEGRO_BITMAP* records = al_load_bitmap("img/tabla.png");
+    ALLEGRO_FONT* formato = al_load_ttf_font("fonts/04B_30__.ttf", 13, NULL);
+    ALLEGRO_EVENT_QUEUE* fila_evento = al_create_event_queue();
+
+    al_draw_bitmap(menu, 13, 30, NULL);
+    al_draw_bitmap(records, 163, 240, NULL);
+    al_draw_text(formato, al_map_rgb(255, 255, 39), 208, 550, NULL, "PRESIONA ENTER");
+    al_draw_text(formato, al_map_rgb(255, 255, 39), 212, 570, NULL, "PARA REGRESAR");
+
+    registro = fopen("registro.dat", "rb");
+
+    fseek(registro, 0, SEEK_END);
+    contador = ftell(registro) / sizeof(Datos);
+
+    int* valores = new int[contador];
+    char** nombres = new char* [contador];
+    for (int i = 0; i < contador; i++) {
+        *(nombres + i) = new char[7];
+    }
+    contador = 0;
+
+    if (ftell(registro) > 0) {
+        fseek(registro, 0, SEEK_SET);
+        fread(&lista, sizeof(Datos), 1, registro);
+        while (!feof(registro)) {
+            *(valores + contador) = lista.puntaje;
+            strcpy_s(nombres[contador], 7, lista.nombre);
+            printf("%s\n", lista.nombre);
+            fread(&lista, sizeof(Datos), 1, registro); 
+            printf("%s\n", lista.nombre);
+            if (!feof(registro)) contador++;
+        }
+        rewind(registro);
+
+        if (contador > 0) {
+            for (int i = 0; i <= contador; i++) {
+                mayor = i;
+                for (int j = i + 1; j <= contador; j++) {
+                    if (valores[j] > valores[mayor]) {
+                        mayor = j;
+                    }
+                }
+                intercambio = valores[i];
+                valores[i] = valores[mayor];
+                valores[mayor] = intercambio;
+                strcpy_s(auxiliar, 7, nombres[i]);
+                strcpy_s(nombres[i], 7, nombres[mayor]);
+                strcpy_s(nombres[mayor], 7, auxiliar);
+            }
+        }
+
+        if (contador >= 8) {
+            for (int i = 0; i < 8; i++) {
+                sprintf_s(cifra, "%i", valores[i]);
+                al_draw_text(formato, al_map_rgb(255, 255, 39), 200, 325 + (i * 27), NULL, nombres[i]);
+                al_draw_text(formato, al_map_rgb(255, 255, 39), 340, 325 + (i * 27), NULL, cifra);
+            }
+        }
+        else{
+            for (int i = 0; i <= contador; i++) {
+                sprintf_s(cifra, "%i", valores[i]);
+                al_draw_text(formato, al_map_rgb(255, 255, 39), 200, 325 + (i * 27), NULL, nombres[i]);
+                al_draw_text(formato, al_map_rgb(255, 255, 39), 340, 325 + (i * 27), NULL, cifra);
+            }
+        }   
+    }
+
+    al_flip_display();
+    al_register_event_source(fila_evento, al_get_keyboard_event_source());
+    al_register_event_source(fila_evento, al_get_display_event_source(pantalla));
+
+    while (!regresar_menu) {
+        ALLEGRO_EVENT evento;
+
+        al_wait_for_event(fila_evento, &evento);
+        switch (evento.type) {
+        case ALLEGRO_EVENT_KEY_DOWN:
+            if (evento.keyboard.keycode == ALLEGRO_KEY_ENTER) {
+                regresar_menu = true;
+                al_rest(0.3);
+                al_clear_to_color(al_map_rgb(0, 0, 0));
+                al_flip_display();
+                al_rest(0.3);
+            }
+            break;
+        case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
+            reanudar = false;
+            while (!reanudar) {
+                ALLEGRO_EVENT evento2;
+                al_wait_for_event(fila_evento, &evento2);
+
+                if (evento2.type == ALLEGRO_EVENT_DISPLAY_SWITCH_IN) {
+                    al_draw_bitmap(menu, 13, 30, NULL);
+                    al_draw_bitmap(records, 163, 240, NULL);
+                    al_draw_text(formato, al_map_rgb(255, 255, 39), 208, 550, NULL, "PRESIONA ENTER");
+                    al_draw_text(formato, al_map_rgb(255, 255, 39), 212, 570, NULL, "PARA REGRESAR");
+                    
+                    if (contador >= 8) {
+                        for (int i = 0; i < 8; i++) {
+                            sprintf_s(cifra, "%i", valores[i]);
+                            al_draw_text(formato, al_map_rgb(255, 255, 39), 200, 325 + (i * 27), NULL, nombres[i]);
+                            al_draw_text(formato, al_map_rgb(255, 255, 39), 340, 325 + (i * 27), NULL, cifra);
+                        }
+                    }
+                    else {
+                        for (int i = 0; i <= contador; i++) {
+                            sprintf_s(cifra, "%i", valores[i]);
+                            al_draw_text(formato, al_map_rgb(255, 255, 39), 200, 325 + (i * 27), NULL, nombres[i]);
+                            al_draw_text(formato, al_map_rgb(255, 255, 39), 340, 325 + (i * 27), NULL, cifra);
+                        }
+                    }
+                    al_flip_display();
+                    reanudar = true;
+                }
+            }
+            break;
+        }
+    }
+    rewind(registro);
+    fclose(registro);
 }
