@@ -14,7 +14,7 @@ enum lista { abajo = 0, arriba = 4, izquierda = 8, derecha = 12 };
 
 struct Datos {
     char nombre[7];
-    char* codigo;
+    char codigo[7];
     int puntaje, nivel, vidas, mapa_actual;
 };
 
@@ -29,24 +29,28 @@ union Mapas {
     char mapa[101][101];
 };
 
+union Codigo{
+    char cadena[7];
+};
+
 void inicializar_graficos();
-void comenzar_juego(ALLEGRO_DISPLAY*, ALLEGRO_SAMPLE*, ALLEGRO_SAMPLE_ID, FILE*);
-Datos preguntar_nombre(ALLEGRO_DISPLAY*);
+void comenzar_juego(ALLEGRO_DISPLAY*, ALLEGRO_SAMPLE*, ALLEGRO_SAMPLE_ID, FILE*, Datos);
+Datos preguntar_nombre(ALLEGRO_DISPLAY*, int);
 char convertir_letra(ALLEGRO_EVENT);
 Mapas llenar_mapa1();
 Mapas llenar_mapa2();
 bool movimiento_pacman(char* mapa[], Datos& jugador, Movimiento& juego, int velocidad);
-char* generar_codigo();
+Codigo generar_codigo();
 char letras_aleatorias();
-void continuar();
+Datos continuar(ALLEGRO_DISPLAY*);
 void checar_records(ALLEGRO_DISPLAY*, FILE*);
 
 int main(int argc, char** argv) {
     srand(time(NULL));
     inicializar_graficos();
-    bool salir = false, empezar = false, sonido = true, reanudar;
+    Datos jugador_nuevo, jugador_comenzar;
+    bool salir = false, empezar = false, sonido = true, reanudar, regresar;
     int x = 0, y = 0;
-    char* codigo = generar_codigo();
 
     FILE* registro = fopen("registro.dat", "rb");
     if (!registro) registro = fopen("registro.dat", "ab");
@@ -66,6 +70,8 @@ int main(int argc, char** argv) {
     ALLEGRO_BITMAP* opcion3 = al_load_bitmap("img/records.png");
     ALLEGRO_BITMAP* opcion4 = al_load_bitmap("img/salir.png");
     ALLEGRO_EVENT_QUEUE* fila_evento = al_create_event_queue();
+    ALLEGRO_FONT* formato = al_load_ttf_font("fonts/04B_30__.ttf", 18, NULL);
+    ALLEGRO_FONT* formato2 = al_load_ttf_font("fonts/04B_30__.ttf", 15, NULL);
 
     al_reserve_samples(3);
     al_register_event_source(fila_evento, al_get_keyboard_event_source());
@@ -146,7 +152,12 @@ int main(int argc, char** argv) {
                 al_clear_to_color(al_map_rgb(0, 0, 0));
                 al_flip_display();
                 al_rest(0.3);
-                comenzar_juego(pantalla, OST, id, registro);
+
+                jugador_nuevo = preguntar_nombre(pantalla, 1);
+                jugador_nuevo.nivel = 1; jugador_nuevo.vidas = 3;
+                jugador_nuevo.mapa_actual = 1;
+
+                comenzar_juego(pantalla, OST, id, registro, jugador_nuevo);
             }
             if (x > 212 && x < 388 && y > 340 && y < 372) {
                 al_play_sample(click, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
@@ -154,7 +165,62 @@ int main(int argc, char** argv) {
                 al_clear_to_color(al_map_rgb(0, 0, 0));
                 al_flip_display();
                 al_rest(0.3);
-                continuar();
+
+                jugador_comenzar = continuar(pantalla);
+
+                al_play_sample(click, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
+                al_rest(0.3);
+                al_clear_to_color(al_map_rgb(0, 0, 0));
+                al_flip_display();
+                al_rest(0.3);
+
+                if (jugador_comenzar.mapa_actual != -1) {
+                    comenzar_juego(pantalla, OST, id, registro, jugador_comenzar);
+                }
+                else {
+                    regresar = false;
+                    al_draw_bitmap(menu, 13, 30, NULL);
+                    al_draw_text(formato, al_map_rgb(255, 255, 39), 172, 280, NULL, "CODIGO O USUARIO");
+                    al_draw_text(formato, al_map_rgb(255, 255, 39), 220, 305, NULL, "INCORRECTO");
+                    al_draw_text(formato2, al_map_rgb(255, 255, 39), 187, 370, NULL, "PRESIONE LA TECLA");
+                    al_draw_text(formato2, al_map_rgb(255, 255, 39), 285, 390, NULL, "(Z)");
+                    al_flip_display();
+
+                    while (!regresar) {
+                        ALLEGRO_EVENT evento3;
+                        al_wait_for_event(fila_evento, &evento3);
+
+                        switch (evento3.type) {
+                        case ALLEGRO_EVENT_KEY_DOWN:
+                            if (evento3.keyboard.keycode == ALLEGRO_KEY_Z) {
+                                al_play_sample(click, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
+                                al_rest(0.3);
+                                al_clear_to_color(al_map_rgb(0, 0, 0));
+                                al_flip_display();
+                                al_rest(0.3);
+                                regresar = true;
+                            }
+                            break;
+                        case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
+                            reanudar = false;
+                            while (!reanudar) {
+                                ALLEGRO_EVENT evento4;
+                                al_wait_for_event(fila_evento, &evento4);
+
+                                if (evento4.type == ALLEGRO_EVENT_DISPLAY_SWITCH_IN) {
+                                    reanudar = true;
+                                    al_draw_bitmap(menu, 13, 30, NULL);
+                                    al_draw_text(formato, al_map_rgb(255, 255, 39), 172, 280, NULL, "CODIGO O USUARIO");
+                                    al_draw_text(formato, al_map_rgb(255, 255, 39), 220, 305, NULL, "INCORRECTO");
+                                    al_draw_text(formato2, al_map_rgb(255, 255, 39), 187, 370, NULL, "PRESIONE LA TECLA");
+                                    al_draw_text(formato2, al_map_rgb(255, 255, 39), 285, 390, NULL, "(Z)");
+                                    al_flip_display();
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
             }
             if (x > 225 && x < 373 && y > 400 && y < 432) {
                 al_play_sample(click, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
@@ -162,6 +228,7 @@ int main(int argc, char** argv) {
                 al_clear_to_color(al_map_rgb(0, 0, 0));
                 al_flip_display();
                 al_rest(0.3);
+
                 checar_records(pantalla, registro);
             }
             if (x > 249 && x < 343 && y > 460 && y < 492) {
@@ -191,20 +258,21 @@ void inicializar_graficos() {
     al_init_acodec_addon();
 }
 
-void comenzar_juego(ALLEGRO_DISPLAY* pantalla, ALLEGRO_SAMPLE* OST, ALLEGRO_SAMPLE_ID id, FILE* registro) {
-    Datos jugador, auxiliar;
+void comenzar_juego(ALLEGRO_DISPLAY* pantalla, ALLEGRO_SAMPLE* OST, ALLEGRO_SAMPLE_ID id, FILE* registro, Datos jugador) {
+    Datos auxiliar;
     Movimiento juego;
     Mapas tablero;
+    Codigo clave;
     char* mapa[111];
     bool finalizado = false, nombre_encontrado = false, vida_perdida, reanudar;
     const int velocidad = 5;
     int puntuacion_previa, continuar_juego, continuar = false;
 
-    FILE* codigos = fopen("constraseñas.dat", "rb+");
+    FILE* codigos = fopen("contraseñas.dat", "rb+");
     if (!codigos) {
-        codigos = fopen("constraseñas.dat", "ab");
+        codigos = fopen("contraseñas.dat", "ab");
         fclose(codigos);
-        codigos = fopen("constraseñas.dat", "rb+");
+        codigos = fopen("contraseñas.dat", "rb+");
     }
 
     ALLEGRO_SAMPLE* fin_nivel = al_load_sample("sounds/07 - Round Clear.mp3");
@@ -216,9 +284,6 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, ALLEGRO_SAMPLE* OST, ALLEGRO_SAMP
     al_register_event_source(fila_evento, al_get_keyboard_event_source());
 
     registro = fopen("registro.dat", "rb+");
-    jugador = preguntar_nombre(pantalla);
-    jugador.nivel = 1; jugador.vidas = 3;
-    jugador.mapa_actual = 1;
 
     al_stop_sample(&id);
     al_clear_to_color(al_map_rgb(0, 0, 0));
@@ -239,7 +304,6 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, ALLEGRO_SAMPLE* OST, ALLEGRO_SAMP
         juego.continuar_nivel = true;
         juego.direccion = abajo;
         juego.direccion_previa = abajo;
-        jugador.codigo = new char[7];
         vida_perdida = false;
         continuar_juego = 0;
 
@@ -317,7 +381,8 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, ALLEGRO_SAMPLE* OST, ALLEGRO_SAMP
     }
 
     if (jugador.vidas > 0 && jugador.nivel != 11) {
-        jugador.codigo = generar_codigo();
+        clave = generar_codigo();
+        strcpy_s(jugador.codigo, 7, clave.cadena);
     }
     
     al_draw_bitmap(menu, 13, 30, NULL);
@@ -428,10 +493,10 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, ALLEGRO_SAMPLE* OST, ALLEGRO_SAMP
     fclose(registro);
 }
 
-Datos preguntar_nombre(ALLEGRO_DISPLAY* pantalla) {
+Datos preguntar_nombre(ALLEGRO_DISPLAY* pantalla, int texto) {
     Datos jugador;
     bool finalizado = false, reanudar;
-    char cadena[7] = "", auxiliar;
+    char cadena[7] = "", auxiliar, cadena1[7] = "";
     int contador = 0;
 
     ALLEGRO_BITMAP* menu = al_load_bitmap("img/t2.png");
@@ -458,7 +523,7 @@ Datos preguntar_nombre(ALLEGRO_DISPLAY* pantalla) {
         case ALLEGRO_EVENT_KEY_DOWN:
             if(evento.keyboard.keycode == ALLEGRO_KEY_ENTER) {
                 if(strlen(cadena) == 0){
-                    al_show_native_message_box(pantalla, "Advertencia", "Error de formato", "Nombre mal introducido", NULL, ALLEGRO_MESSAGEBOX_WARN);
+                    al_show_native_message_box(pantalla, "Advertencia", "Error de formato", "Texto mal introducido", NULL, ALLEGRO_MESSAGEBOX_WARN);
                 }
                 else {
                     al_play_sample(click, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
@@ -538,14 +603,116 @@ Datos preguntar_nombre(ALLEGRO_DISPLAY* pantalla) {
             break;
         }
     }
-
+   
     al_rest(0.3);
     al_clear_to_color(al_map_rgb(0, 0, 0));
     al_flip_display();
     al_rest(0.5);
 
+    if (texto == 2) {
+        finalizado = false;
+        contador = 0;
+
+        al_clear_to_color(al_map_rgb(0, 0, 0));
+        al_draw_bitmap(menu, 13, 30, NULL);
+        al_draw_text(formato, al_map_rgb(255, 255, 39), 160, 280, NULL, "INGRESE SU CODIGO");
+        al_draw_text(formato, al_map_rgb(255, 255, 39), 183, 500, NULL, "PRESIONE ENTER");
+        al_draw_text(formato, al_map_rgb(255, 255, 39), 204, 530, NULL, "AL FINALIZAR");
+        al_flip_display();
+
+        while (!finalizado) {
+            ALLEGRO_EVENT evento;
+            al_wait_for_event(fila_evento, &evento);
+
+            switch (evento.type) {
+            case ALLEGRO_EVENT_KEY_DOWN:
+                if (evento.keyboard.keycode == ALLEGRO_KEY_ENTER) {
+                    if (strlen(cadena1) == 0) {
+                        al_show_native_message_box(pantalla, "Advertencia", "Error de formato", "Texto mal introducido", NULL, ALLEGRO_MESSAGEBOX_WARN);
+                    }
+                    else {
+                        al_play_sample(click, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
+                        finalizado = true;
+                    }
+                }
+                else {
+                    auxiliar = convertir_letra(evento);
+                    if (auxiliar != '+' && strlen(cadena1) < 6) al_play_sample(tecla, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
+                    fflush(stdin);
+                    if (auxiliar != '+' && auxiliar != '-' && contador < 6) {
+                        cadena1[contador] = auxiliar;
+
+                        al_clear_to_color(al_map_rgb(0, 0, 0));
+                        al_draw_bitmap(menu, 13, 30, NULL);
+                        al_draw_text(formato, al_map_rgb(255, 255, 39), 160, 280, NULL, "INGRESE SU CODIGO");
+                        al_draw_text(formato, al_map_rgb(255, 255, 39), 183, 500, NULL, "PRESIONE ENTER");
+                        al_draw_text(formato, al_map_rgb(255, 255, 39), 204, 530, NULL, "AL FINALIZAR");
+                        switch (strlen(cadena1)) {
+                        case 1: al_draw_text(formato, al_map_rgb(255, 163, 1), 299, 340, NULL, cadena1); break;
+                        case 2: al_draw_text(formato, al_map_rgb(255, 163, 1), 290, 340, NULL, cadena1); break;
+                        case 3: al_draw_text(formato, al_map_rgb(255, 163, 1), 281, 340, NULL, cadena1); break;
+                        case 4: al_draw_text(formato, al_map_rgb(255, 163, 1), 272, 340, NULL, cadena1); break;
+                        case 5: al_draw_text(formato, al_map_rgb(255, 163, 1), 263, 340, NULL, cadena1); break;
+                        case 6: al_draw_text(formato, al_map_rgb(255, 163, 1), 254, 340, NULL, cadena1); break;
+                        }
+                        al_flip_display();
+
+                        contador++;
+                    }
+                    if (auxiliar == '-' && contador >= 0) {
+                        if (contador > 0) contador--;
+                        cadena1[contador] = NULL;
+
+                        al_clear_to_color(al_map_rgb(0, 0, 0));
+                        al_draw_bitmap(menu, 13, 30, NULL);
+                        al_draw_text(formato, al_map_rgb(255, 255, 39), 160, 280, NULL, "INGRESE SU CODIGO");
+                        al_draw_text(formato, al_map_rgb(255, 255, 39), 183, 500, NULL, "PRESIONE ENTER");
+                        al_draw_text(formato, al_map_rgb(255, 255, 39), 204, 530, NULL, "AL FINALIZAR");
+                        switch (strlen(cadena1)) {
+                        case 1: al_draw_text(formato, al_map_rgb(255, 163, 1), 299, 340, NULL, cadena1); break;
+                        case 2: al_draw_text(formato, al_map_rgb(255, 163, 1), 290, 340, NULL, cadena1); break;
+                        case 3: al_draw_text(formato, al_map_rgb(255, 163, 1), 281, 340, NULL, cadena1); break;
+                        case 4: al_draw_text(formato, al_map_rgb(255, 163, 1), 272, 340, NULL, cadena1); break;
+                        case 5: al_draw_text(formato, al_map_rgb(255, 163, 1), 263, 340, NULL, cadena1); break;
+                        case 6: al_draw_text(formato, al_map_rgb(255, 163, 1), 254, 340, NULL, cadena1); break;
+                        }
+                        al_flip_display();
+                    }
+                    fflush(stdin);
+                }
+                al_flip_display();
+                break;
+            case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
+                reanudar = false;
+                while (!reanudar) {
+                    ALLEGRO_EVENT evento2;
+                    al_wait_for_event(fila_evento, &evento2);
+
+                    if (evento2.type == ALLEGRO_EVENT_DISPLAY_SWITCH_IN) {
+                        al_draw_bitmap(menu, 13, 30, NULL);
+                        al_draw_text(formato, al_map_rgb(255, 255, 39), 160, 280, NULL, "INGRESE SU CODIGO");
+                        al_draw_text(formato, al_map_rgb(255, 255, 39), 183, 500, NULL, "PRESIONE ENTER");
+                        al_draw_text(formato, al_map_rgb(255, 255, 39), 204, 530, NULL, "AL FINALIZAR");
+                        switch (strlen(cadena1)) {
+                        case 1: al_draw_text(formato, al_map_rgb(255, 163, 1), 299, 340, NULL, cadena1); break;
+                        case 2: al_draw_text(formato, al_map_rgb(255, 163, 1), 290, 340, NULL, cadena1); break;
+                        case 3: al_draw_text(formato, al_map_rgb(255, 163, 1), 281, 340, NULL, cadena1); break;
+                        case 4: al_draw_text(formato, al_map_rgb(255, 163, 1), 272, 340, NULL, cadena1); break;
+                        case 5: al_draw_text(formato, al_map_rgb(255, 163, 1), 263, 340, NULL, cadena1); break;
+                        case 6: al_draw_text(formato, al_map_rgb(255, 163, 1), 254, 340, NULL, cadena1); break;
+                        }
+                        al_flip_display();
+                        reanudar = true;
+                    }
+                }
+                break;
+            }
+        }
+    }
+
     jugador.puntaje = 0;
     strcpy_s(jugador.nombre, 7, cadena);
+    strcpy_s(jugador.codigo, 7, cadena1);
 
     return jugador;
 }
@@ -1013,13 +1180,17 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
     return false;
 }
 
-char* generar_codigo() {
-    char * codigo = new char [7];
+Codigo generar_codigo() {
+    Codigo clave;
+    char cadena[7] = "";
 
     for (int i = 0; i < 6; i++) {
-        codigo[i] = letras_aleatorias();
+        cadena[i] = letras_aleatorias();
     }
-    return codigo;
+    
+    strcpy_s(clave.cadena, 7, cadena);
+
+    return clave;
 }
 
 char letras_aleatorias() {
@@ -1038,8 +1209,30 @@ char letras_aleatorias() {
     }
 }
 
-void continuar() {
-    fopen("registro.dat", "rb");
+Datos continuar(ALLEGRO_DISPLAY* pantalla) {
+    Datos solicitud, auxiliar;
+    bool encontrado = false;
+
+    FILE * contrasenias = fopen("contraseñas.dat", "rb");
+    if (!contrasenias) contrasenias = fopen("contraseñas.dat", "ab");
+    fclose(contrasenias);
+    contrasenias = fopen("contraseñas.dat", "rb");
+
+    solicitud = preguntar_nombre(pantalla, 2);
+
+    fread(&auxiliar, sizeof(Datos), 1, contrasenias);
+    while (!feof(contrasenias)) {
+        if (strcmp(solicitud.nombre, auxiliar.nombre) == 0 && strcmp(solicitud.codigo, auxiliar.codigo) == 0) {
+            encontrado = true;
+            break;
+        }
+        fread(&auxiliar, sizeof(Datos), 1, contrasenias);
+    }
+
+    if (!encontrado) {
+        auxiliar.mapa_actual = -1;
+    }
+    return auxiliar;
 }
 
 void checar_records(ALLEGRO_DISPLAY* pantalla, FILE* registro) {
@@ -1076,9 +1269,7 @@ void checar_records(ALLEGRO_DISPLAY* pantalla, FILE* registro) {
         while (!feof(registro)) {
             *(valores + contador) = lista.puntaje;
             strcpy_s(nombres[contador], 7, lista.nombre);
-            printf("%s\n", lista.nombre);
             fread(&lista, sizeof(Datos), 1, registro); 
-            printf("%s\n", lista.nombre);
             if (!feof(registro)) contador++;
         }
         rewind(registro);
