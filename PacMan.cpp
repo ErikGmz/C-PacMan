@@ -171,8 +171,8 @@ int main(int argc, char** argv) {
 
                 jugador_nuevo = preguntar_nombre(pantalla, 1);
                 al_stop_sample(&id2);
-                jugador_nuevo.nivel = 6; jugador_nuevo.vidas = 3;
-                jugador_nuevo.mapa_actual = 2;
+                jugador_nuevo.nivel = 1; jugador_nuevo.vidas = 3;
+                jugador_nuevo.mapa_actual = 1;
 
                 comenzar_juego(pantalla, registro, jugador_nuevo);
                 al_play_sample(menus, 0.3, 0.5, 1, ALLEGRO_PLAYMODE_LOOP, &id2);
@@ -395,21 +395,22 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, FILE* registro, Datos jugador) {
             al_rest(1.0);
         }
                        
-        (jugador.nivel % 2 == 0) ? jugador.mapa_actual = 2 : jugador.mapa_actual = 1;
+        if (jugador.vidas > 0) (jugador.nivel % 2 == 0) ? jugador.mapa_actual = 2 : jugador.mapa_actual = 1;
 
-        if (jugador.vidas == 0 || jugador.nivel == 7 || continuar_juego == 2) finalizado = true;
+        if (jugador.vidas <= 0 || jugador.nivel >= 7 || continuar_juego == 2) finalizado = true;
     }
 
-    if (jugador.vidas > 0 && jugador.nivel != 5) {
+    if (jugador.nivel != 7 && jugador.nivel != 1) {
         clave = generar_codigo();
         strcpy_s(jugador.codigo, 7, clave.cadena);
     }
+    if (jugador.vidas <= 0) jugador.vidas = 1;
     
     al_draw_bitmap(menu, 13, 30, NULL);
     al_draw_text(formato1, al_map_rgb(255, 255, 39), 176, 280, NULL, "JUEGO FINALIZADO");
     al_draw_text(formato2, al_map_rgb(255, 255, 39), 187, 350, NULL, "PRESIONE LA TECLA");
     al_draw_text(formato2, al_map_rgb(255, 255, 39), 285, 370, NULL, "(Q)");
-    if (jugador.vidas > 0 && jugador.nivel != 11) {
+    if (jugador.nivel != 7 && jugador.nivel != 1) {
         al_draw_text(formato2, al_map_rgb(255, 255, 39), 213, 420, NULL, "LA CLAVE PARA");
         al_draw_text(formato2, al_map_rgb(255, 255, 39), 170, 440, NULL, "REANUDAR LA PARTIDA");
         al_draw_text(formato2, al_map_rgb(255, 255, 39), 288, 460, NULL, "ES");
@@ -438,7 +439,7 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, FILE* registro, Datos jugador) {
                     al_draw_text(formato1, al_map_rgb(255, 255, 39), 176, 280, NULL, "JUEGO FINALIZADO");
                     al_draw_text(formato2, al_map_rgb(255, 255, 39), 187, 350, NULL, "PRESIONE LA TECLA");
                     al_draw_text(formato2, al_map_rgb(255, 255, 39), 285, 370, NULL, "(Q)");
-                    if (jugador.vidas > 0 && jugador.nivel != 11) {
+                    if (jugador.nivel != 7 && jugador.nivel != 1) {
                         al_draw_text(formato2, al_map_rgb(255, 255, 39), 213, 420, NULL, "LA CLAVE PARA");
                         al_draw_text(formato2, al_map_rgb(255, 255, 39), 170, 440, NULL, "REANUDAR LA PARTIDA");
                         al_draw_text(formato2, al_map_rgb(255, 255, 39), 288, 460, NULL, "ES");
@@ -457,7 +458,7 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, FILE* registro, Datos jugador) {
     al_flip_display();
     al_rest(0.3);
 
-    if (jugador.vidas > 0 && jugador.nivel != 11) {
+    if (jugador.nivel != 7 && jugador.nivel != 1) {
         fseek(codigos, 0, SEEK_END);
         if (ftell(codigos) == 0) {
             fwrite(&jugador, sizeof(Datos), 1, codigos);
@@ -1263,19 +1264,19 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
             }
 
             if (blinky1.estado == 3) {
-                blinky1.invisibilidad++;
+                if (!juego_pausado) blinky1.invisibilidad++;
                 blinky1.movimiento = false;
             }
             if (pinky1.estado == 3) {
-                pinky1.invisibilidad++;
+                if (!juego_pausado) pinky1.invisibilidad++;
                 pinky1.movimiento = false;
             }
             if (inky1.estado == 3) {
-                inky1.invisibilidad++;
+                if (!juego_pausado) inky1.invisibilidad++;
                 inky1.movimiento = false;
             }
             if (clyde1.estado == 3) {
-                clyde1.invisibilidad++;
+                if (!juego_pausado) clyde1.invisibilidad++;
                 clyde1.movimiento = false;
             }
 
