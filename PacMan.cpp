@@ -297,6 +297,7 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, FILE* registro, Datos jugador) {
     }
 
     ALLEGRO_SAMPLE* fin_nivel = al_load_sample("sounds/07 - Round Clear.mp3");
+    ALLEGRO_SAMPLE* click = al_load_sample("sounds/click.mp3");
     ALLEGRO_BITMAP* menu = al_load_bitmap("img/t2.png");
     ALLEGRO_EVENT_QUEUE* fila_evento = al_create_event_queue();
     ALLEGRO_FONT* formato1 = al_load_ttf_font("fonts/04B_30__.ttf", 18, NULL);
@@ -343,46 +344,55 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, FILE* registro, Datos jugador) {
             al_flip_display();
             al_rest(1.0);
 
-            al_draw_bitmap(menu, 13, 30, NULL);
-            al_draw_text(formato1, al_map_rgb(255, 255, 39), 176, 280, NULL, "NIVEL FINALIZADO");
-            al_draw_text(formato2, al_map_rgb(255, 255, 39), 160, 340, NULL, "SELECCIONE UNA OPCION");
-            al_draw_text(formato2, al_map_rgb(255, 255, 39), 165, 420, NULL, "CONTINUAR");
-            al_draw_text(formato3, al_map_rgb(255, 255, 39), 180, 450, NULL, "TECLA (A)");
-            al_draw_text(formato2, al_map_rgb(255, 255, 39), 320, 420, NULL, "FINALIZAR");
-            al_draw_text(formato3, al_map_rgb(255, 255, 39), 330, 450, NULL, "TECLA (S)");
-            al_flip_display();
+            if (jugador.nivel != 7) {
 
-            while (continuar_juego != 1 && continuar_juego != 2) {
-                ALLEGRO_EVENT evento;
-                al_wait_for_event(fila_evento, &evento);
+                al_draw_text(formato1, al_map_rgb(255, 255, 39), 176, 280, NULL, "NIVEL FINALIZADO");
+                al_draw_bitmap(menu, 13, 30, NULL);
+                al_draw_text(formato2, al_map_rgb(255, 255, 39), 160, 340, NULL, "SELECCIONE UNA OPCION");
+                al_draw_text(formato2, al_map_rgb(255, 255, 39), 165, 420, NULL, "CONTINUAR");
+                al_draw_text(formato3, al_map_rgb(255, 255, 39), 180, 450, NULL, "TECLA (A)");
+                al_draw_text(formato2, al_map_rgb(255, 255, 39), 320, 420, NULL, "FINALIZAR");
+                al_draw_text(formato3, al_map_rgb(255, 255, 39), 330, 450, NULL, "TECLA (S)");
+                al_flip_display();
 
-                switch (evento.type) {
-                case ALLEGRO_EVENT_KEY_DOWN: 
-                    if (evento.keyboard.keycode == ALLEGRO_KEY_A) continuar_juego = 1;
-                    if (evento.keyboard.keycode == ALLEGRO_KEY_S) continuar_juego = 2;
-                    break;
-                case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT: 
-                    reanudar = false;
-                    while (!reanudar) {
-                        ALLEGRO_EVENT evento2;
-                        al_wait_for_event(fila_evento, &evento2);
+                while (continuar_juego != 1 && continuar_juego != 2) {
+                    ALLEGRO_EVENT evento;
+                    al_wait_for_event(fila_evento, &evento);
 
-                        if (evento2.type == ALLEGRO_EVENT_DISPLAY_SWITCH_IN) {
-
-                            al_draw_bitmap(menu, 13, 30, NULL);
-                            al_draw_text(formato1, al_map_rgb(255, 255, 39), 176, 280, NULL, "NIVEL FINALIZADO");
-                            al_draw_text(formato2, al_map_rgb(255, 255, 39), 160, 340, NULL, "SELECCIONE UNA OPCION");
-                            al_draw_text(formato2, al_map_rgb(255, 255, 39), 165, 420, NULL, "CONTINUAR");
-                            al_draw_text(formato3, al_map_rgb(255, 255, 39), 180, 450, NULL, "TECLA (A)");
-                            al_draw_text(formato2, al_map_rgb(255, 255, 39), 320, 420, NULL, "FINALIZAR");
-                            al_draw_text(formato3, al_map_rgb(255, 255, 39), 330, 450, NULL, "TECLA (S)");
-                            al_flip_display();
-                            reanudar = true;
+                    switch (evento.type) {
+                    case ALLEGRO_EVENT_KEY_DOWN:
+                        if (evento.keyboard.keycode == ALLEGRO_KEY_A) {
+                            al_play_sample(click, 1, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
+                            continuar_juego = 1;
                         }
+                        if (evento.keyboard.keycode == ALLEGRO_KEY_S) {
+                            al_play_sample(click, 1, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
+                            continuar_juego = 2;
+                        }
+                        break;
+                    case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
+                        reanudar = false;
+                        while (!reanudar) {
+                            ALLEGRO_EVENT evento2;
+                            al_wait_for_event(fila_evento, &evento2);
+
+                            if (evento2.type == ALLEGRO_EVENT_DISPLAY_SWITCH_IN) {
+
+                                al_draw_bitmap(menu, 13, 30, NULL);
+                                al_draw_text(formato1, al_map_rgb(255, 255, 39), 176, 280, NULL, "NIVEL FINALIZADO");
+                                al_draw_text(formato2, al_map_rgb(255, 255, 39), 160, 340, NULL, "SELECCIONE UNA OPCION");
+                                al_draw_text(formato2, al_map_rgb(255, 255, 39), 165, 420, NULL, "CONTINUAR");
+                                al_draw_text(formato3, al_map_rgb(255, 255, 39), 180, 450, NULL, "TECLA (A)");
+                                al_draw_text(formato2, al_map_rgb(255, 255, 39), 320, 420, NULL, "FINALIZAR");
+                                al_draw_text(formato3, al_map_rgb(255, 255, 39), 330, 450, NULL, "TECLA (S)");
+                                al_flip_display();
+                                reanudar = true;
+                            }
+                        }
+                        break;
                     }
-                    break;
                 }
-            }
+            }    
             al_clear_to_color(al_map_rgb(0, 0, 0));
             al_flip_display();
             al_rest(1.0);
@@ -425,6 +435,7 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, FILE* registro, Datos jugador) {
         switch (evento.type) {
         case ALLEGRO_EVENT_KEY_DOWN:
             if (evento.keyboard.keycode == ALLEGRO_KEY_Q) {
+                al_play_sample(click, 1, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
                 continuar = true;
             }
             break;
@@ -950,7 +961,7 @@ Mapas llenar_mapa2() {
      "     ***p          p    p******************* ********* ******************p     p         p*****     ",
      "     ******************* ******************* ********* ****************** *********************     ",
      "     ******************* ******************* ********* ****************** *********************     ",
-     "     *******************q    o    q    o    o*********q    o   q    o    q*********************     ",
+     "     *******************q    o    o    o    o*********q    o   o    o    q*********************     ",
      "     ******************* ************************************************ *********************     ",
      "     ******************* ************************************************ *********************     ",
      "************************ ************************************************ **************************",
@@ -1783,14 +1794,14 @@ char letras_aleatorias() {
 
     switch (x) {
     case 1: return 'A'; break; case 2: return 'B'; break; case 3: return 'C'; break;
-    case 4: return 'D'; break; case 5: return 'E'; break; case 6: return 'F'; break;
-    case 7: return 'G'; break; case 8: return 'H'; break; case 9: return 'I'; break;
+    case 4: return '3'; break; case 5: return 'E'; break; case 6: return 'F'; break;
+    case 7: return 'G'; break; case 8: return '4'; break; case 9: return 'I'; break;
     case 10: return 'J'; break; case 11: return 'K'; break; case 12: return 'L'; break;
-    case 13: return 'M'; break; case 14: return 'N'; break; case 15: return 'O'; break;
+    case 13: return '1'; break; case 14: return '2'; break; case 15: return '6'; break;
     case 16: return 'P'; break; case 17: return 'Q'; break; case 18: return 'R'; break;
-    case 19: return 'S'; break; case 20: return 'T'; break; case 21: return 'U'; break;
-    case 22: return 'V'; break; case 23: return 'W'; break; case 24: return 'X'; break;
-    case 25: return 'Y'; break; case 26: return 'Z'; break; default: return '1';
+    case 19: return 'S'; break; case 20: return 'T'; break; case 21: return '9'; break;
+    case 22: return '8'; break; case 23: return '2'; break; case 24: return 'X'; break;
+    case 25: return '6'; break; case 26: return 'Z'; break; default: return '1';
     }
 }
 
