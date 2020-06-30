@@ -1,3 +1,31 @@
+/*
+Proyecto Final - PacMan.
+
+Integrantes de equipo:
+    - Erik Alejandro Gómez Martínez.
+    - Israel Alejandro Mora González.
+    - Ángel Gabriel Galindo López.
+    - José Emmanuel Rodríguez López.
+
+Fecha de entrega: 06 de julio de 2020.
+
+Descripción general: Recreación en lenguaje C del clásico arcade PacMan. Existen varias funciones elementales para el funcionamiento
+del proyecto:
+    - Comenzar_juego: Se encarga de la efectuación de las partidas, así como del almacenado de contraseñas y puntajes.
+    - Récords: Genera un ranking de las ocho puntuaciones más altas que se hayan registrado.
+    - Continuar_juego: Permite reanudar una partida a través de una contraseña previamente obtenida.
+
+El juego consta de seis niveles distintos; los impares se presentarán con el mapa principal, mientras que el resto con una variante.
+
+Para avanzar de nivel es necesario que todos los Pac-Dots sean consumidos; las frutas solo funcionan como bonificadores.
+
+Solo se puede almacenar un récord y contraseña por persona, evitando así la sobresaturación de los archivos binarios;
+el sistema reemplazará automáticamente los respectivos datos según el progreso y puntaje de un jugador específico.
+
+Juego programado en el IDE Visual Studio 2019, utilizando la versión 5.2.6 de Allegro.
+*/
+
+//- Librerías.
 #include <allegro5/allegro.h>
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_ttf.h>
@@ -10,53 +38,91 @@
 #include <string.h>
 #include <ctype.h>
 
-enum lista { abajo = 0, arriba = 4, izquierda = 8, derecha = 12 };
-enum movimiento_fantasmas { abajo_s = 0, izquierda_s = 2, derecha_s = 4, arriba_s = 6 };
+//- Enumeraciones.
+enum lista { abajo = 0, arriba = 4, izquierda = 8, derecha = 12 }; //Movimiento de PacMan.
+enum movimiento_fantasmas { abajo_s = 0, izquierda_s = 2, derecha_s = 4, arriba_s = 6 }; //Movimiento de fantasmas.
 
+//- Estructuras.
 struct Datos {
     char nombre[7];
     char codigo[7];
     int puntaje, nivel, vidas, mapa_actual;
-};
+}; //Datos del jugador.
 
 struct Movimiento {
     int coord_x, coord_y, animacion; 
     bool continuar_nivel;
     char nombre_archivo[30],  numero[3], cifra[9], impresion_nivel[3];
     lista direccion = abajo, direccion_previa = abajo;
-};
+}; //Variables para la efectuación de las partidas.
 
 struct Fantasma {
     int coord_x, coord_y, animacion = 0, estado = 1, puerta_cruzada = 0, retraso = 0, invisibilidad = 0;
     bool giro = false, movimiento = true;
     movimiento_fantasmas direccion = abajo_s, direccion_previa = abajo_s;
-};
+}; //Variables para el comportamiento de los fantasmas.
 
+//- Uniones.
 union Mapas {
     char mapa[101][101];
-};
+}; //Retorno de los mapas.
 
 union Codigo{
     char cadena[7];
-};
+}; //Retorno de la generación aleatoria de contraseñas.
 
-void inicializar_graficos();
+
+//- Prototipos de funciones.
+
+//Inicialización de Allegro.
+void inicializar_graficos(); 
+
+//Solicitar nombre del usuario, llevar a cabo las partidas y registrar datos en respectivos archivos binarios.
 void comenzar_juego(ALLEGRO_DISPLAY*, FILE*, Datos);
+
+//Solicitar el nombre y/o contraseña del usuario dependiendo del proceso a realizar.
 Datos preguntar_nombre(ALLEGRO_DISPLAY*, int);
+
+//Impresión de instrucciones específicas para la solicitud de nombres.
 void imprimir_texto();
+
+//Convertir los eventos de teclado a caracteres. Permite el correcto ingreso de nombres y contraseñas.
 char convertir_letra(ALLEGRO_EVENT);
+
+//LLenado y retorno del primer mapa.
 Mapas llenar_mapa1();
+
+//LLenado y retorno del segundo mapa.
 Mapas llenar_mapa2();
+
+//Motor funcional de las partidas del juego. Controla los movimientos de PacMan y fantasmas; además, delimita temporizadores.
 bool movimiento_pacman(char* mapa[], Datos& jugador, Movimiento& juego, int velocidad);
+
+//Verificación del estado actual de los fantasmas. El contacto con ellos puede ocasionar la pérdida de una vida o bonificación.
 bool verificar_muerte(char* mapa[], Movimiento juego, Fantasma enemigo, bool movimiento_activado);
+
+//Gestiona el comportamiento de los fantasmas.
 void mover_fantasma(char* mapa[], Movimiento juego, Datos jugador, int velocidad, Fantasma& enemigo, bool juego_iniciado, bool movimiento_activado, bool juego_pausado);
+
+//Delimita las zonas de teletransporte para los fantasmas.
 void definir_teletransporte_fantasmas(char* mapa[], Fantasma& enemigo);
+
+//Se retornan direcciones aleatorias para los fantasmas.
 movimiento_fantasmas conversion();
+
+//Se genera un código para la reanudación de las partidas.
 Codigo generar_codigo();
+
+//Aleatoriza caracteres alfanuméricos para generar aleatoriamente cada contraseña.
 char letras_aleatorias();
+
+//Permite que los usuarios puedan reanudar sus partidas.
 Datos continuar(ALLEGRO_DISPLAY*);
+
+//Muestra el ranking de las ocho puntuaciones más altas registradas.
 void checar_records(ALLEGRO_DISPLAY*, FILE*);
 
+//- Función main.
 int main(int argc, char** argv) {
     srand(time(NULL));
     inicializar_graficos();
@@ -66,7 +132,7 @@ int main(int argc, char** argv) {
 
     FILE* registro = fopen("registro.dat", "rb");
     if (!registro) registro = fopen("registro.dat", "ab");
-    fclose(registro);
+    fclose(registro); //Se verifica la apertura del archivo para el almacenado de récords.
     
     ALLEGRO_DISPLAY* pantalla = al_create_display(600, 600);
     ALLEGRO_SAMPLE* opcion = al_load_sample("sounds/selection.mp3");
@@ -89,22 +155,22 @@ int main(int argc, char** argv) {
     al_reserve_samples(6);
     al_register_event_source(fila_evento, al_get_keyboard_event_source());
     al_register_event_source(fila_evento, al_get_mouse_event_source());
-    al_register_event_source(fila_evento, al_get_display_event_source(pantalla));
-    al_set_window_title(pantalla, "PacMan");
-    al_set_display_icon(pantalla, icono);
+    al_register_event_source(fila_evento, al_get_display_event_source(pantalla)); //Inicializadores para el registro de eventos.
+    al_set_window_title(pantalla, "PacMan"); //Cambiar el nombre de la ventana a "PacMan".
+    al_set_display_icon(pantalla, icono); //Cambiar el ícono de la ventana.
 
     al_draw_bitmap(pantalla_inicio, 13, 30, NULL);
     al_draw_bitmap(boton_A, 232, 380, NULL);
     al_flip_display();
 
-    al_play_sample(OST, 0.4, 0, 1.0, ALLEGRO_PLAYMODE_LOOP, &id);
+    al_play_sample(OST, 0.4, 0, 1.0, ALLEGRO_PLAYMODE_LOOP, &id); //Música de pantalla de título.
 
     while (!empezar) {
         ALLEGRO_EVENT evento;
         al_wait_for_event(fila_evento, &evento);
 
         switch(evento.type) {
-        case ALLEGRO_EVENT_KEY_DOWN:
+        case ALLEGRO_EVENT_KEY_DOWN: 
             if (evento.keyboard.keycode == ALLEGRO_KEY_A) {
                 al_play_sample(click, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
                 empezar = true;
@@ -113,9 +179,9 @@ int main(int argc, char** argv) {
                 al_clear_to_color(al_map_rgb(0, 0, 0));
                 al_flip_display();
                 al_rest(0.3);
-            }
+            } //Si el usuario presiona la tecla "A" se avanzará hacia el menú principal.
             break;
-        case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
+        case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT: //El contenido se vuelve a mostrar en caso de cerrar la ventana.
             reanudar = false;
             while (!reanudar) {
                 ALLEGRO_EVENT evento2;
@@ -130,11 +196,11 @@ int main(int argc, char** argv) {
             }
             break;
         }
-    }
+    } //Finalización de pantalla de título.
 
     al_stop_sample(&id);
 
-    al_play_sample(menus, 0.3, 0.5, 1, ALLEGRO_PLAYMODE_LOOP, &id2);
+    al_play_sample(menus, 0.3, 0.5, 1, ALLEGRO_PLAYMODE_LOOP, &id2); //Cambio de música.
     while (!salir) {
         ALLEGRO_EVENT evento;
         al_wait_for_event(fila_evento, &evento);
@@ -145,7 +211,7 @@ int main(int argc, char** argv) {
         al_draw_bitmap(opcion2, 212, 340, NULL);
         al_draw_bitmap(opcion3, 225, 400, NULL);
         al_draw_bitmap(opcion4, 249, 460, NULL);
-        al_flip_display();
+        al_flip_display(); //Apertura de menú prinicipal.
 
         switch (evento.type) {
         case ALLEGRO_EVENT_MOUSE_AXES:
@@ -162,7 +228,7 @@ int main(int argc, char** argv) {
             }
             break;
         case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
-            if (x > 232 && x < 360 && y > 280 && y < 312) {
+            if (x > 232 && x < 360 && y > 280 && y < 312) { //Selección de "comenzar".
                 al_play_sample(click, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
                 al_rest(0.3);
                 al_clear_to_color(al_map_rgb(0, 0, 0));
@@ -172,19 +238,19 @@ int main(int argc, char** argv) {
                 jugador_nuevo = preguntar_nombre(pantalla, 1);
                 al_stop_sample(&id2);
                 jugador_nuevo.nivel = 1; jugador_nuevo.vidas = 3;
-                jugador_nuevo.mapa_actual = 1;
+                jugador_nuevo.mapa_actual = 1; //Se cargan los datos de inicio para el mapa y conteo del puntaje.
 
-                comenzar_juego(pantalla, registro, jugador_nuevo);
+                comenzar_juego(pantalla, registro, jugador_nuevo); //Se comienza el juego.
                 al_play_sample(menus, 0.3, 0.5, 1, ALLEGRO_PLAYMODE_LOOP, &id2);
             }
-            if (x > 212 && x < 388 && y > 340 && y < 372) {
+            if (x > 212 && x < 388 && y > 340 && y < 372) { //Selección de "continuar".
                 al_play_sample(click, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
                 al_rest(0.3);
                 al_clear_to_color(al_map_rgb(0, 0, 0));
                 al_flip_display();
                 al_rest(0.3);
 
-                jugador_comenzar = continuar(pantalla);
+                jugador_comenzar = continuar(pantalla); //Se extraen los datos de un usuario para verificar el cargado de una partida.
 
                 al_play_sample(click, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
                 al_rest(0.3);
@@ -196,7 +262,7 @@ int main(int argc, char** argv) {
                     al_stop_sample(&id2);
                     comenzar_juego(pantalla, registro, jugador_comenzar);
                     al_play_sample(menus, 0.3, 0.5, 1, ALLEGRO_PLAYMODE_LOOP, &id2);
-                }
+                } //El usuario y contraseña fueron validados.
                 else {
                     regresar = false;
                     al_draw_bitmap(menu, 13, 30, NULL);
@@ -240,18 +306,18 @@ int main(int argc, char** argv) {
                             break;
                         }
                     }
-                }
+                }//Las entradas fueron inválidas.
             }
-            if (x > 225 && x < 373 && y > 400 && y < 432) {
+            if (x > 225 && x < 373 && y > 400 && y < 432) { //Selección de "récords".
                 al_play_sample(click, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
                 al_rest(0.3);
                 al_clear_to_color(al_map_rgb(0, 0, 0));
                 al_flip_display();
                 al_rest(0.3);
 
-                checar_records(pantalla, registro);
+                checar_records(pantalla, registro); //Generación del ranking.
             }
-            if (x > 249 && x < 343 && y > 460 && y < 492) {
+            if (x > 249 && x < 343 && y > 460 && y < 492) { //Selección de "salir".
                 al_play_sample(click, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
                 salir = true;
                 al_stop_sample(&id2);
@@ -259,26 +325,24 @@ int main(int argc, char** argv) {
             break;
         }
     }
-        
-    /*al_destroy_display(pantalla); al_destroy_font(formato); al_destroy_bitmap(pantalla_inicio);
-    al_destroy_bitmap(boton_A); al_destroy_bitmap(menu); al_destroy_bitmap(opcion1);
-    al_destroy_bitmap(opcion2); al_destroy_bitmap(opcion3); al_destroy_bitmap(opcion4);
-    al_destroy_sample(OST); al_destroy_sample(opcion); al_destroy_sample(click);*/
-
     return 0;
 }
-    
+
+//- Implementación de funciones.
+ 
+//Inicialización de Allegro.
 void inicializar_graficos() {
-    al_init();
-    al_install_audio();
-    al_install_keyboard();
-    al_install_mouse();
-    al_init_font_addon();
-    al_init_ttf_addon();
-    al_init_image_addon();
-    al_init_acodec_addon();
+    al_init(); 
+    al_install_audio(); //Instalar audio.
+    al_install_keyboard(); //Instalar teclado.
+    al_install_mouse(); //Instalar mouse.
+    al_init_font_addon(); //Fuentes.
+    al_init_ttf_addon(); //Fuentes.
+    al_init_image_addon(); //Cargado de imágenes.
+    al_init_acodec_addon(); //Audio.
 }
 
+//Solicitar nombre del usuario, llevar a cabo las partidas y registrar datos en respectivos archivos binarios.
 void comenzar_juego(ALLEGRO_DISPLAY* pantalla, FILE* registro, Datos jugador) {
     Datos auxiliar;
     Movimiento juego;
@@ -294,7 +358,7 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, FILE* registro, Datos jugador) {
         codigos = fopen("contraseñas.dat", "ab");
         fclose(codigos);
         codigos = fopen("contraseñas.dat", "rb+");
-    }
+    } //Se verifica la apetura del archivo para el registro de contraseñas.
 
     ALLEGRO_SAMPLE* fin_nivel = al_load_sample("sounds/07 - Round Clear.mp3");
     ALLEGRO_SAMPLE* click = al_load_sample("sounds/click.mp3");
@@ -305,7 +369,7 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, FILE* registro, Datos jugador) {
     ALLEGRO_FONT* formato3 = al_load_ttf_font("fonts/04B_30__.ttf", 13, NULL);
     al_register_event_source(fila_evento, al_get_keyboard_event_source());
 
-    registro = fopen("registro.dat", "rb+");
+    registro = fopen("registro.dat", "rb+"); //Apertura del archivo para el registro de récords.
 
     al_clear_to_color(al_map_rgb(0, 0, 0));
 
@@ -319,7 +383,7 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, FILE* registro, Datos jugador) {
             juego.coord_y = 363;
             tablero = llenar_mapa2(); 
             break;
-        }
+        } //Selección del mapa actual.
         juego.coord_x = 287;
         juego.animacion = 0;
         juego.continuar_nivel = true;
@@ -333,7 +397,7 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, FILE* registro, Datos jugador) {
         }
 
         puntuacion_previa = jugador.puntaje;
-        vida_perdida = movimiento_pacman(mapa, jugador, juego, velocidad);
+        vida_perdida = movimiento_pacman(mapa, jugador, juego, velocidad); //Se verifica su hubo pérdida de vidas o no.
 
         if (!vida_perdida) {
             jugador.nivel++;
@@ -361,11 +425,11 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, FILE* registro, Datos jugador) {
 
                     switch (evento.type) {
                     case ALLEGRO_EVENT_KEY_DOWN:
-                        if (evento.keyboard.keycode == ALLEGRO_KEY_A) {
+                        if (evento.keyboard.keycode == ALLEGRO_KEY_A) { //Se da inicio al siguiente nivel.
                             al_play_sample(click, 1, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
                             continuar_juego = 1;
                         }
-                        if (evento.keyboard.keycode == ALLEGRO_KEY_S) {
+                        if (evento.keyboard.keycode == ALLEGRO_KEY_S) { //La partida actual finaliza por selección del usuario.
                             al_play_sample(click, 1, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
                             continuar_juego = 2;
                         }
@@ -396,25 +460,29 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, FILE* registro, Datos jugador) {
             al_clear_to_color(al_map_rgb(0, 0, 0));
             al_flip_display();
             al_rest(1.0);
-        }
+        } //El nivel actual fue completado exitosamente.
         else {
             jugador.puntaje = puntuacion_previa;
             al_rest(1.5);
             al_clear_to_color(al_map_rgb(0, 0, 0));
             al_flip_display();
             al_rest(1.0);
-        }
-                       
-        if (jugador.vidas > 0) (jugador.nivel % 2 == 0) ? jugador.mapa_actual = 2 : jugador.mapa_actual = 1;
+        } //El jugador perdió una vida.
+                     
+        //Selección del mapa actual según el nivel contador.
+        if (jugador.vidas > 0) (jugador.nivel % 2 == 0) ? jugador.mapa_actual = 2 : jugador.mapa_actual = 1; 
 
+        //El juego termina si el usuario pierde todas sus vidas o finaliza el nivel 6.
         if (jugador.vidas <= 0 || jugador.nivel >= 7 || continuar_juego == 2) finalizado = true;
     }
 
+    
     if (jugador.nivel != 7 && jugador.nivel != 1) {
         clave = generar_codigo();
         strcpy_s(jugador.codigo, 7, clave.cadena);
-    }
-    if (jugador.vidas <= 0) jugador.vidas = 1;
+    } //Se genera una contraseña de reanudación si el usuario no terminó los seis niveles.
+
+    if (jugador.vidas <= 0) jugador.vidas = 1; //El jugador comenzará con una vida si las perdió todas.
     
     al_draw_bitmap(menu, 13, 30, NULL);
     al_draw_text(formato1, al_map_rgb(255, 255, 39), 176, 280, NULL, "JUEGO FINALIZADO");
@@ -425,7 +493,7 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, FILE* registro, Datos jugador) {
         al_draw_text(formato2, al_map_rgb(255, 255, 39), 170, 440, NULL, "REANUDAR LA PARTIDA");
         al_draw_text(formato2, al_map_rgb(255, 255, 39), 288, 460, NULL, "ES");
         al_draw_text(formato2, al_map_rgb(255, 163, 1), 260, 490, NULL, jugador.codigo);
-    }
+    } //Se muestra la contraseña generada al usuario.
     al_flip_display();
 
     while (!continuar) {
@@ -434,7 +502,7 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, FILE* registro, Datos jugador) {
 
         switch (evento.type) {
         case ALLEGRO_EVENT_KEY_DOWN:
-            if (evento.keyboard.keycode == ALLEGRO_KEY_Q) {
+            if (evento.keyboard.keycode == ALLEGRO_KEY_Q) { //Se regresará al menú principal si se presiona la tecla "Q".
                 al_play_sample(click, 1, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
                 continuar = true;
             }
@@ -462,18 +530,19 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, FILE* registro, Datos jugador) {
             }
             break;
         }
-    }
+    } //Finalización de la partida.
 
     al_rest(0.3);
     al_clear_to_color(al_map_rgb(0, 0, 0));
     al_flip_display();
     al_rest(0.3);
 
+    //Registro de las contraseñas y récords
     if (jugador.nivel != 7 && jugador.nivel != 1) {
         fseek(codigos, 0, SEEK_END);
         if (ftell(codigos) == 0) {
             fwrite(&jugador, sizeof(Datos), 1, codigos);
-        }
+        } //El archivo se llenará de forma directa si está vacío.
         else {
             fseek(codigos, 0, SEEK_SET);
             fread(&auxiliar, sizeof(Datos), 1, codigos);
@@ -483,23 +552,23 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, FILE* registro, Datos jugador) {
                     fseek(codigos, ftell(codigos) - sizeof(Datos), SEEK_SET);
                     fwrite(&jugador, sizeof(Datos), 1, codigos);
                     break;
-                }
+                } //Si el nombre a registrar ya se encuentra en el archivo se reemplazarán los datos.
                 fread(&auxiliar, sizeof(Datos), 1, codigos);
             }
 
             if (!nombre_encontrado) {
                 fseek(codigos, 0, SEEK_END);
                 fwrite(&jugador, sizeof(Datos), 1, codigos);
-            }
+            } //El nombre se escribirá por primera vez si no se encontró en el archivo ya llenado.
         }
-    }
+    } //Registro de contraseñas.
     rewind(codigos);
     fclose(codigos);
     nombre_encontrado = false;
 
     fseek(registro, 0, SEEK_END);
     if (ftell(registro) == 0) {
-        if (jugador.puntaje > 0) fwrite(&jugador, sizeof(Datos), 1, registro);
+        if (jugador.puntaje > 0) fwrite(&jugador, sizeof(Datos), 1, registro); //Se registra un récord mayor a 0.
     }
     else {
         fseek(registro, 0, SEEK_SET);
@@ -510,9 +579,9 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, FILE* registro, Datos jugador) {
                 if (jugador.puntaje > auxiliar.puntaje && jugador.puntaje > 0) {
                     fseek(registro, ftell(registro) - sizeof(Datos), SEEK_SET);
                     fwrite(&jugador, sizeof(Datos), 1, registro);
-                }
+                } //Si el puntaje actual supera al registrado, entonces los datos se reemplazarán.
                 break;
-            }
+            } //El usuario a registrar fue encontrado en el archivo.
             fread(&auxiliar, sizeof(Datos), 1, registro);
         }
 
@@ -520,11 +589,12 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, FILE* registro, Datos jugador) {
             fseek(registro, 0, SEEK_END);
             if (jugador.puntaje > 0) fwrite(&jugador, sizeof(Datos), 1, registro);
         }
-    }
+    } //Registro de los récords.
     rewind(registro);
     fclose(registro);
 }
 
+//Solicitar el nombre y/o contraseña del usuario dependiendo del proceso a realizar.
 Datos preguntar_nombre(ALLEGRO_DISPLAY* pantalla, int texto) {
     Datos jugador;
     bool finalizado = false, reanudar;
@@ -543,7 +613,7 @@ Datos preguntar_nombre(ALLEGRO_DISPLAY* pantalla, int texto) {
     al_clear_to_color(al_map_rgb(0, 0, 0));
     al_draw_bitmap(menu, 13, 30, NULL);
     al_draw_text(formato, al_map_rgb(255, 255, 39), 160, 280, NULL, "INGRESE SU NOMBRE");
-    imprimir_texto();
+    imprimir_texto(); //Se muestra la interfaz para la solicitud del nombre.
     al_flip_display();
     
     while (!finalizado) {
@@ -555,14 +625,14 @@ Datos preguntar_nombre(ALLEGRO_DISPLAY* pantalla, int texto) {
             if(evento.keyboard.keycode == ALLEGRO_KEY_ENTER) {
                 if(strlen(cadena) == 0){
                     al_show_native_message_box(pantalla, "Advertencia", "Error de formato", "Texto mal introducido", NULL, ALLEGRO_MESSAGEBOX_WARN);
-                }
+                } //Si no se introdujo un nombre, entonces el programa lo advertirá.
                 else {
                     al_play_sample(click, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
                     finalizado = true;
-                }
-            }
+                } //El nombre fue validado.
+            } //Envío del nombre.
             else {
-                auxiliar = convertir_letra(evento);
+                auxiliar = convertir_letra(evento); //Conversión de eventos de teclado a caracteres.
                 if(auxiliar != '+' && strlen(cadena) < 6) al_play_sample(tecla, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
                 fflush(stdin);
                 if (auxiliar != '+' && auxiliar != '-' && contador < 6) {
@@ -603,7 +673,7 @@ Datos preguntar_nombre(ALLEGRO_DISPLAY* pantalla, int texto) {
                     al_flip_display();
                 }
                 fflush(stdin);
-            }
+            } //Ingreso del nombre.
             al_flip_display();
             break;
         case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
@@ -637,6 +707,7 @@ Datos preguntar_nombre(ALLEGRO_DISPLAY* pantalla, int texto) {
     al_flip_display();
     al_rest(0.5);
 
+    //Se solicitará un código en la respectiva opción.
     if (texto == 2) {
         finalizado = false;
         contador = 0;
@@ -656,12 +727,12 @@ Datos preguntar_nombre(ALLEGRO_DISPLAY* pantalla, int texto) {
                 if (evento.keyboard.keycode == ALLEGRO_KEY_ENTER) {
                     if (strlen(cadena1) == 0) {
                         al_show_native_message_box(pantalla, "Advertencia", "Error de formato", "Texto mal introducido", NULL, ALLEGRO_MESSAGEBOX_WARN);
-                    }
+                    } //Código no introducido.
                     else {
                         al_play_sample(click, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
                         finalizado = true;
-                    }
-                }
+                    } //Envío del código.
+                } 
                 else {
                     auxiliar = convertir_letra(evento);
                     if (auxiliar != '+' && strlen(cadena1) < 6) al_play_sample(tecla, 0.6, 0, 1.0, ALLEGRO_PLAYMODE_ONCE, 0);
@@ -704,7 +775,7 @@ Datos preguntar_nombre(ALLEGRO_DISPLAY* pantalla, int texto) {
                         al_flip_display();
                     }
                     fflush(stdin);
-                }
+                } //Introducción del código.
                 al_flip_display();
                 break;
             case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
@@ -737,10 +808,12 @@ Datos preguntar_nombre(ALLEGRO_DISPLAY* pantalla, int texto) {
     jugador.puntaje = 0;
     strcpy_s(jugador.nombre, 7, cadena);
     strcpy_s(jugador.codigo, 7, cadena1);
+    //Se preparan los datos para su retorno a través de una estructura.
 
     return jugador;
 }
 
+//Impresión de instrucciones específicas para la solicitud de nombres.
 void imprimir_texto() {
     ALLEGRO_FONT* formato = al_load_ttf_font("fonts/04B_30__.ttf", 18, NULL);
 
@@ -748,6 +821,7 @@ void imprimir_texto() {
     al_draw_text(formato, al_map_rgb(255, 255, 39), 204, 530, NULL, "AL FINALIZAR");
 }
 
+//Convertir los eventos de teclado a caracteres. Permite el correcto ingreso de nombres y contraseñas.
 char convertir_letra(ALLEGRO_EVENT evento) {
     char letra;
     switch (evento.keyboard.keycode) {
@@ -764,10 +838,11 @@ char convertir_letra(ALLEGRO_EVENT evento) {
     case ALLEGRO_KEY_5: letra = '5'; break; case ALLEGRO_KEY_6: letra = '6'; break; case ALLEGRO_KEY_7: letra = '7'; break;
     case ALLEGRO_KEY_8: letra = '8'; break; case ALLEGRO_KEY_9: letra = '9'; break; case ALLEGRO_KEY_0: letra = '0'; break;
     case ALLEGRO_KEY_BACKSPACE: letra = '-'; break; default: letra = '+'; break;
-    }
-    return letra;
+    } 
+    return letra; //Se retornará un caracrer correspondiente a la tecla presionada por el usuario.
 }
 
+//LLenado y retorno del primer mapa.
 Mapas llenar_mapa1() {
     Mapas tablero;
     char mapa[101][101] =
@@ -872,7 +947,17 @@ Mapas llenar_mapa1() {
      "     ******************************************************************************************     ",
      "     ******************************************************************************************     ",
      "     ******************************************************************************************     ",
-    };
+    }; //Inicialización del primer mapa.
+    /*
+    Simbología:
+        o - Pac-Dot.
+        p - Cambio de dirección en fantasmas.
+        q - Pac-Dot y cambio de dirección para fantasmas.
+        X - Puerta.
+        M - Cierre de puerta.
+        Q - Potenciador.
+        * - Colisión.
+    */
 
     for (int i = 0; i < 101; i++) {
         strcpy_s(*(tablero.mapa + i), 101, mapa[i]);
@@ -880,6 +965,7 @@ Mapas llenar_mapa1() {
     return tablero;
 }
 
+//LLenado y retorno del segundo mapa.
 Mapas llenar_mapa2() {
     Mapas tablero;
     char mapa[101][101] =
@@ -917,7 +1003,7 @@ Mapas llenar_mapa2() {
      "     ******************* ********* **** ****************** **** ********* *********************     ",
      "     ******************* ********* **** ****************** **** ********* *********************     ",
      "     ******************* ********* **** ****************** **** ********* *********************     ",
-     "     *******************o*********      ******************      *********o*********************     ",
+     "     *******************o*********o     ******************     o*********o*********************     ",
      "     ******************* ********* **** ****************** **** ********* *********************     ",
      "     ******************* ********* **** ****************** **** ********* *********************     ",
      "     ******************* ********* **** ****************** **** ********* *********************     ",
@@ -984,7 +1070,16 @@ Mapas llenar_mapa2() {
      "     ******************************************************************************************     ",
      "     ******************************************************************************************     ",
      "     ******************************************************************************************     ",
-    };
+    }; //Inicialización de segundo mapa.
+    /*Simbología:
+        o - Pac - Dot.
+        p - Cambio de dirección en fantasmas.
+        q - Pac - Dot y cambio de dirección para fantasmas.
+        X - Puerta.
+        M - Cierre de puerta.
+        Q - Potenciador.
+        * - Colisión.
+    */
 
     for (int i = 0; i < 101; i++) {
         strcpy_s(*(tablero.mapa + i), 101, mapa[i]);
@@ -992,6 +1087,7 @@ Mapas llenar_mapa2() {
     return tablero;
 }
 
+//Motor funcional de las partidas del juego. Controla los movimientos de PacMan y fantasmas; además, delimita temporizadores.
 bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velocidad) {
     ALLEGRO_BITMAP* pacman[28];
     ALLEGRO_BITMAP* blinky[8];
@@ -1008,6 +1104,14 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
     ALLEGRO_BITMAP* negro = al_load_bitmap("img/negro.png");
     ALLEGRO_BITMAP* icono = al_load_bitmap("img/sprites/ui/life.png");
     ALLEGRO_BITMAP* marcador = al_load_bitmap("img/pacman/ready.png");
+    ALLEGRO_BITMAP* naranja = al_load_bitmap("img/sprites/fruits/orange.png"); 
+    ALLEGRO_BITMAP* campana = al_load_bitmap("img/sprites/fruits/bell.png");
+    ALLEGRO_BITMAP* llave = al_load_bitmap("img/sprites/fruits/key.png");
+    ALLEGRO_BITMAP* insignia = al_load_bitmap("img/sprites/fruits/boss.png");
+    ALLEGRO_BITMAP* manzana = al_load_bitmap("img/sprites/fruits/apple.png");
+    ALLEGRO_BITMAP* melon = al_load_bitmap("img/sprites/fruits/melon.png");
+    ALLEGRO_BITMAP* fresa = al_load_bitmap("img/sprites/fruits/strawberry.png");
+    ALLEGRO_BITMAP* cereza = al_load_bitmap("img/sprites/fruits/cherry.png");
     ALLEGRO_EVENT_QUEUE* fila_evento = al_create_event_queue();
     ALLEGRO_TIMER* temporizador = al_create_timer(1.0 / 15);
     ALLEGRO_KEYBOARD_STATE estado_tecla;
@@ -1017,6 +1121,7 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
     ALLEGRO_SAMPLE* potenciador = al_load_sample("sounds/power_pellet.wav");
     ALLEGRO_SAMPLE* sonido_fantasmas = al_load_sample("sounds/siren_1.wav");
     ALLEGRO_SAMPLE* comer_fantasmas = al_load_sample("sounds/eat_ghost.wav");
+    ALLEGRO_SAMPLE* comer_fruta = al_load_sample("sounds/eat_fruit.wav");
     ALLEGRO_FONT* formato = al_load_ttf_font("fonts/04B_30__.ttf", 13, NULL);
     ALLEGRO_FONT* formato2 = al_load_ttf_font("fonts/04B_30__.ttf", 10, NULL);
     ALLEGRO_SAMPLE_ID id1, id2;
@@ -1038,28 +1143,47 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
         pinky1.coord_y = 315;
         inky1.coord_y = 315;
         clyde1.coord_y = 315;
-    }
+    } //Inicialización de las coordenadas para los fantasmas.
 
     switch (jugador.nivel) {
+    case 1:
+        *(*(mapa + 26) + 18) = 'N';
+        *(*(mapa + 26) + 79) = 'C';
+        *(*(mapa + 84) + 34) = 'L';
+        *(*(mapa + 84) + 62) = 'I';
+        break;
+    case 2:
+        *(*(mapa + 30) + 8) = 'N';
+        *(*(mapa + 30) + 89) = 'V';
+        *(*(mapa + 68) + 8) = 'A';
+        *(*(mapa + 68) + 89) = 'H';
+        break;
     case 3:
+        *(*(mapa + 4) + 8) = 'L';
+        *(*(mapa + 4) + 89) = 'S';
+        break;
     case 4: 
-        *(*(mapa + 4) + 8) = 'q';
-        *(*(mapa + 4) + 89) = 'q';
+        *(*(mapa + 4) + 8) = 'H';
+        *(*(mapa + 4) + 89) = 'A';
         break;
     case 5:
-    case 6:
-        *(*(mapa + 4) + 8) = 'q';
-        *(*(mapa + 4) + 89) = 'q';
-        if (jugador.mapa_actual == 1) {
-            *(*(mapa + 94) + 8) = 'q';
-            *(*(mapa + 94) + 89) = 'q';
-        }
-        else {
-            *(*(mapa + 87) + 34) = 'q';
-            *(*(mapa + 87) + 63) = 'q';
-        }
+        *(*(mapa + 4) + 8) = 'L';
+        *(*(mapa + 94) + 8) = 'C';
+        *(*(mapa + 94) + 89) = 'I';
         break;
-    }
+    case 6:
+        *(*(mapa + 4) + 8) = 'A';
+        *(*(mapa + 87) + 34) = 'V';
+        *(*(mapa + 87) + 63) = 'S';
+        break;
+    } //Posicionamiento de frutas según el mapa.
+    /*
+    Simbología:
+        A - Manzana.    L - Llave.
+        C - Campana.    V - Melón.
+        I - Insignia.   N - Naranja.
+        H - Cereza.     S - Fresa.
+    */
 
     al_reserve_samples(6);
 
@@ -1073,7 +1197,7 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
 
     al_register_event_source(fila_evento, al_get_timer_event_source(temporizador));
     al_register_event_source(fila_evento, al_get_keyboard_event_source());
-    al_start_timer(temporizador);
+    al_start_timer(temporizador); //Inicio del temporizador del juego.
 
     for (int i = 0; i < 28; i++) {
         strcpy_s(juego.nombre_archivo, 30, "img/pacman/pacman");
@@ -1113,7 +1237,7 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
         if (i >= 8 && i < 16) inky[j] = al_load_bitmap(juego.nombre_archivo);
         if (i >= 16 && i < 24) clyde[j] = al_load_bitmap(juego.nombre_archivo);
         if (i >= 24 && i < 32) pinky[j] = al_load_bitmap(juego.nombre_archivo);
-    }
+    } //Inicialización de bitmaps.
 
     while (juego.continuar_nivel) {
         indicador = false;
@@ -1130,16 +1254,16 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
 
             if (al_key_down(&estado_tecla, ALLEGRO_KEY_DOWN) && movimiento_activado && juego_iniciado && !juego_pausado) {
                 if (*(*(mapa + ((juego.coord_y - 70) / 5) + 2) + ((juego.coord_x - 66) / 5) + 5) != '*' && *(*(mapa + ((juego.coord_y - 70) / 5) + 2) + ((juego.coord_x - 66) / 5) + 5) != 'X' && ((juego.coord_y - 70) / 5) + 1 <= 100) juego.direccion = abajo;
-            }
+            } //PacMan se direcciona hacia abajo si no hay ninguna pared.
             if (al_key_down(&estado_tecla, ALLEGRO_KEY_UP) && movimiento_activado && juego_iniciado && !juego_pausado) {
                 if (*(*(mapa + ((juego.coord_y - 70) / 5) - 2) + ((juego.coord_x - 66) / 5) + 5) != '*' && *(*(mapa + ((juego.coord_y - 70) / 5) - 2) + ((juego.coord_x - 66) / 5) + 5) != 'X' && ((juego.coord_y - 70) / 5) - 1 >= 0) juego.direccion = arriba;
-            }
+            } //PacMan se direcciona hacia arriba si no hay ninguna pared.
             if (al_key_down(&estado_tecla, ALLEGRO_KEY_LEFT) && movimiento_activado && juego_iniciado && !juego_pausado) {
                 if (*(*(mapa + (juego.coord_y - 70) / 5) + ((juego.coord_x - 66) / 5) - 2 + 5)  != '*' && *(*(mapa + (juego.coord_y - 70) / 5) + ((juego.coord_x - 66) / 5) - 2 + 5) != 'X' && ((juego.coord_x - 66) / 5) - 1 + 5 >= 0) juego.direccion = izquierda;
-            }
+            } //PacMan se direcciona hacia la izquierda si no hay ninguna pared.
             if (al_key_down(&estado_tecla, ALLEGRO_KEY_RIGHT) && movimiento_activado && juego_iniciado && !juego_pausado) {
                 if (*(*(mapa + (juego.coord_y - 70) / 5) + ((juego.coord_x - 66) / 5) + 2 + 5) != '*' && *(*(mapa + (juego.coord_y - 70) / 5) + ((juego.coord_x - 66) / 5) + 2 + 5) != 'X' && ((juego.coord_x - 66) / 5) + 1 + 5 <= 100) juego.direccion = derecha;
-            }
+            } //PacMan se direcciona hacia la derecha si no hay ninguna pared.
            
             if (verificar_muerte(mapa, juego, blinky1, movimiento_activado)) {
                 if (blinky1.estado == 1) {
@@ -1150,17 +1274,17 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
                     }
                     al_rest(1);
                     al_play_sample(morir, 0.5, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
-                }
+                } //Si Blinky se encontraba persiguiendo, entonces el jugador pierde una vida.
                 if (blinky1.estado == 2) {
                     blinky1.estado = 3;
 
-                    puntaje_comer += 100;
+                    puntaje_comer += 200;
                     jugador.puntaje += puntaje_comer;
 
                     al_play_sample(comer_fantasmas, 0.5, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
                     juego_pausado = true;
-                }
-            }
+                } //En caso contrario, el fantasma es comido por PacMan.
+            } //Se verifica si hubo colisión con Blinky (fantasma rojo).
             if (verificar_muerte(mapa, juego, inky1, movimiento_activado)) {
                 if (inky1.estado == 1) {
                     movimiento_activado = false;
@@ -1170,17 +1294,17 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
                     }
                     al_rest(1);
                     al_play_sample(morir, 0.5, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
-                }
+                } //Si Inky se encontraba persiguiendo, entonces el jugador pierde una vida.
                 if (inky1.estado == 2) {
                     inky1.estado = 3;
 
-                    puntaje_comer += 100;
+                    puntaje_comer += 200;
                     jugador.puntaje += puntaje_comer;
 
                     al_play_sample(comer_fantasmas, 0.5, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
                     juego_pausado = true;
-                }
-            }
+                } //En caso contrario, el fantasma es comido por PacMan.
+            } //Se verifica si hubo colisión con Inky (fantasma azul).
             if (verificar_muerte(mapa, juego, pinky1, movimiento_activado)) {
                 if (pinky1.estado == 1) {
                     movimiento_activado = false;
@@ -1190,17 +1314,17 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
                     }
                     al_rest(1);
                     al_play_sample(morir, 0.5, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
-                }
+                } //Si Pinky se encontraba persiguiendo, entonces el jugador pierde una vida.
                 if (pinky1.estado == 2) {
                     pinky1.estado = 3;
 
-                    puntaje_comer += 100;
+                    puntaje_comer += 200;
                     jugador.puntaje += puntaje_comer;
 
                     al_play_sample(comer_fantasmas, 0.5, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
                     juego_pausado = true;
-                }
-            }
+                } //En caso contrario, el fantasma es comido por PacMan.
+            } //Se verifica si hubo colisión con Pinky (fantasma rosa).
             if (verificar_muerte(mapa, juego, clyde1, movimiento_activado)) {
                 if (clyde1.estado == 1) {
                     movimiento_activado = false;
@@ -1210,24 +1334,24 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
                     }
                     al_rest(1);
                     al_play_sample(morir, 0.5, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
-                }
+                } //Si Clyde se encontraba persiguiendo, entonces el jugador pierde una vida.
                 if (clyde1.estado == 2) {
                     clyde1.estado = 3;
 
-                    puntaje_comer += 100;
+                    puntaje_comer += 200;
                     jugador.puntaje += puntaje_comer;
 
                     al_play_sample(comer_fantasmas, 0.5, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
                     juego_pausado = true;
-                }
-            }
+                } //En caso contrario, el fantasma es comido por PacMan.
+            } //Se verifica si hubo colisión con Clyde (fantasma naranja).
           
             if (!movimiento_activado) contador++;
             if (juego_pausado) {
                 pausar_juego++;
                 sprintf_s(acumulacion, "%i", puntaje_comer);
                 al_draw_text(formato2, al_map_rgb(255, 255, 255), juego.coord_x, juego.coord_y - 5, NULL, acumulacion);
-            }
+            } //Se genera una breve pausa al comer un fantasma.
 
             if (pausar_juego == 15) {
                 juego_pausado = false;
@@ -1272,66 +1396,66 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
                     }
                     inky1.coord_x = 273;
                 }
-            }
+            } // Los fantasmas consumidos regresan a su punto de origen.
 
             if (blinky1.estado == 3) {
                 if (!juego_pausado) blinky1.invisibilidad++;
                 blinky1.movimiento = false;
-            }
+            } //Se activa la invulnerabilidad de Blinky tras ser comido.
             if (pinky1.estado == 3) {
                 if (!juego_pausado) pinky1.invisibilidad++;
                 pinky1.movimiento = false;
-            }
+            } //Se activa la invulnerabilidad de Pinky tras ser comido.
             if (inky1.estado == 3) {
                 if (!juego_pausado) inky1.invisibilidad++;
                 inky1.movimiento = false;
-            }
+            } //Se activa la invulnerabilidad de Inky tras ser comido.
             if (clyde1.estado == 3) {
                 if (!juego_pausado) clyde1.invisibilidad++;
                 clyde1.movimiento = false;
-            }
+            } //Se activa la invulnerabilidad de Clyde tras ser comido.
 
             if (blinky1.invisibilidad == 70) {
                 blinky1.estado = 1;
                 blinky1.invisibilidad = 0;
                 blinky1.movimiento = true;
-            }
+            } //Se desactiva la invulnerabilidad de Blinky para volver a perseguir a PacMan.
             if (pinky1.invisibilidad == 70) {
                 pinky1.estado = 1;
                 pinky1.invisibilidad = 0;
                 pinky1.movimiento = true;
-            }
+            } //Se desactiva la invulnerabilidad de Pinky para volver a perseguir a PacMan.
             if (inky1.invisibilidad == 70) {
                 inky1.estado = 1;
                 inky1.invisibilidad = 0;
                 inky1.movimiento = true;
-            }
+            } //Se desactiva la invulnerabilidad de Inky para volver a perseguir a PacMan.
             if (clyde1.invisibilidad == 70) {
                 clyde1.estado = 1;
                 clyde1.invisibilidad = 0;
                 clyde1.movimiento = true;
-            }
+            } //Se desactiva la invulnerabilidad de Clyde para volver a perseguir a PacMan.
                 
-            mover_fantasma(mapa, juego, jugador, velocidad, blinky1, juego_iniciado, movimiento_activado, juego_pausado);
-            mover_fantasma(mapa, juego, jugador, velocidad, pinky1, juego_iniciado, movimiento_activado, juego_pausado);
-            mover_fantasma(mapa, juego, jugador, velocidad, inky1, juego_iniciado, movimiento_activado, juego_pausado);
-            mover_fantasma(mapa, juego, jugador, velocidad, clyde1, juego_iniciado, movimiento_activado, juego_pausado);
+            mover_fantasma(mapa, juego, jugador, velocidad, blinky1, juego_iniciado, movimiento_activado, juego_pausado); //Movimiento de Blinky.
+            mover_fantasma(mapa, juego, jugador, velocidad, pinky1, juego_iniciado, movimiento_activado, juego_pausado); //Movimiento de Pinky.
+            mover_fantasma(mapa, juego, jugador, velocidad, inky1, juego_iniciado, movimiento_activado, juego_pausado); //Movimiento de Inky.
+            mover_fantasma(mapa, juego, jugador, velocidad, clyde1, juego_iniciado, movimiento_activado, juego_pausado); //Movimiento de Clyde.
 
             switch (juego.direccion) {
             case abajo:
                 if (*(*(mapa + ((juego.coord_y - 70) / 5) + 1) + ((juego.coord_x - 66) / 5) + 5) != '*' && *(*(mapa + ((juego.coord_y - 70) / 5) + 1) + ((juego.coord_x - 66) / 5) + 5) != 'X' && ((juego.coord_y - 70) / 5) + 1 <= 100 && movimiento_activado && juego_iniciado && !juego_pausado) {
                     juego.coord_y += velocidad;
                     juego.animacion++;
-                }
+                } //PacMan se desplaza hacia abajo.
                 else {
                     if (!juego_pausado) juego.animacion = 0;
-                }
+                } //PacMan se detiene.
                 break;
             case arriba:
                 if (*(*(mapa + ((juego.coord_y - 70) / 5) - 1) + ((juego.coord_x - 66) / 5) + 5) != '*' && *(*(mapa + ((juego.coord_y - 70) / 5) - 1) + ((juego.coord_x - 66) / 5) + 5) != 'X' && ((juego.coord_y - 70) / 5) - 1 >= 0 && movimiento_activado && juego_iniciado && !juego_pausado) {
                     juego.coord_y -= velocidad;
                     juego.animacion++;
-                }
+                } //PacMan se desplaza hacia arriba.
                 else {
                     if (!juego_pausado) juego.animacion = 0;
                 }
@@ -1340,7 +1464,7 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
                 if (*(*(mapa + (juego.coord_y - 70) / 5) + ((juego.coord_x - 66) / 5) - 1 + 5) != '*' && *(*(mapa + (juego.coord_y - 70) / 5) + ((juego.coord_x - 66) / 5) - 1 + 5) != 'X' && ((juego.coord_x - 66) / 5) - 1  + 5 >= 0 && movimiento_activado && juego_iniciado && !juego_pausado) {
                     juego.coord_x -= velocidad;
                     juego.animacion++;
-                }
+                } //PacMan se desplaza hacia la izquierda.
                 else {
                     if (!juego_pausado) juego.animacion = 0;
                 }
@@ -1349,7 +1473,7 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
                 if (*(*(mapa + (juego.coord_y - 70) / 5) + ((juego.coord_x - 66) / 5) + 1 + 5) != '*' && *(*(mapa + (juego.coord_y - 70) / 5) + ((juego.coord_x - 66) / 5) + 1 + 5) != 'X' && ((juego.coord_x - 66) / 5) + 1 + 5 <= 100 && movimiento_activado && juego_iniciado && !juego_pausado) {
                     juego.coord_x += velocidad;
                     juego.animacion++;
-                }
+                } //PacMan se desplaza hacia la derecha.
                 else{
                     if (!juego_pausado) juego.animacion = 0;
                 }
@@ -1359,28 +1483,18 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
             if(!juego_iniciado){
                 if (inicializacion == 0) {
                     al_play_sample(intro, 0.5, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
-                }
+                } 
                 inicializacion++;
                 if (inicializacion == 70) {
                     juego_iniciado = true;
                 }
-            }
+            } //Se detienen los movimientos para el inicio del juego.
             
-            if (estado_fantasmas == 2 && !juego_pausado) tiempo_vulnerabilidad++;
+            if (estado_fantasmas == 2 && !juego_pausado) tiempo_vulnerabilidad++; //Se contabiliza el tiempo del potenciador.
         }
 
-        if ((juego.animacion > juego.direccion + 3 || juego.direccion != juego.direccion_previa) && movimiento_activado && juego_iniciado) juego.animacion = juego.direccion;
-        if (estado_fantasmas == 1) {
-            if ((pinky1.animacion > pinky1.direccion + 1 || pinky1.direccion != pinky1.direccion_previa) && movimiento_activado && juego_iniciado) pinky1.animacion = pinky1.direccion;
-            if ((inky1.animacion > inky1.direccion + 1 || inky1.direccion != inky1.direccion_previa) && movimiento_activado && juego_iniciado) inky1.animacion = inky1.direccion;
-            if ((clyde1.animacion > clyde1.direccion + 1 || clyde1.direccion != clyde1.direccion_previa) && movimiento_activado && juego_iniciado) clyde1.animacion = clyde1.direccion;
-        }
-        if (estado_fantasmas == 2) {
-            if (blinky1.animacion == 2 && movimiento_activado && juego_iniciado && blinky1.estado == 2) blinky1.animacion = 0;
-            if (pinky1.animacion == 2 && movimiento_activado && juego_iniciado && pinky1.estado == 2) pinky1.animacion = 0;
-            if (inky1.animacion == 2 && movimiento_activado && juego_iniciado && inky1.estado == 2) inky1.animacion = 0;
-            if (clyde1.animacion == 2 && movimiento_activado && juego_iniciado && clyde1.estado == 2) clyde1.animacion = 0;
-        }
+        if ((juego.animacion > juego.direccion + 3 || juego.direccion != juego.direccion_previa) && movimiento_activado && juego_iniciado) juego.animacion = juego.direccion; //Control de la animación de PacMan.
+
         switch (blinky1.estado) {
         case 1:
             if ((blinky1.animacion > blinky1.direccion + 1 || blinky1.direccion != blinky1.direccion_previa) && movimiento_activado && juego_iniciado) blinky1.animacion = blinky1.direccion;
@@ -1388,7 +1502,7 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
         default:
             if (blinky1.animacion == 2 && movimiento_activado && juego_iniciado && blinky1.estado == 2) blinky1.animacion = 0;
             break;
-        }
+        } //Control de las animaciones de Blinky.
 
         switch (pinky1.estado) {
         case 1:
@@ -1397,7 +1511,7 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
         default:
             if (pinky1.animacion == 2 && movimiento_activado && juego_iniciado && pinky1.estado == 2) pinky1.animacion = 0;
             break;
-        }
+        } //Control de las animaciones de Pinky.
 
         switch (inky1.estado) {
         case 1:
@@ -1406,7 +1520,7 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
         default:
             if (inky1.animacion == 2 && movimiento_activado && juego_iniciado && inky1.estado == 2) inky1.animacion = 0;
             break;
-        }
+        } //Control de las animaciones de Inky.
 
         switch (clyde1.estado) {
         case 1:
@@ -1415,19 +1529,60 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
         default:
             if (clyde1.animacion == 2 && movimiento_activado && juego_iniciado && clyde1.estado == 2) clyde1.animacion = 0;
             break;
-        }
+        } //Control de las animaciones de Clyde.
 
-        if (*(*(mapa + ((juego.coord_y - 70) / 5)) + ((juego.coord_x - 66) / 5) + 5) == 'o') {
+        switch (*(*(mapa + ((juego.coord_y - 70) / 5)) + ((juego.coord_x - 66) / 5) + 5)) {
+        case 'o': 
             *(*(mapa + ((juego.coord_y - 70) / 5)) + ((juego.coord_x - 66) / 5) + 5) = ' ';
             al_play_sample(comer, 0.1, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
             jugador.puntaje += 10;
-        }
-        if (*(*(mapa + ((juego.coord_y - 70) / 5)) + ((juego.coord_x - 66) / 5) + 5) == 'q') {
+            break;
+        case 'q':
             *(*(mapa + ((juego.coord_y - 70) / 5)) + ((juego.coord_x - 66) / 5) + 5) = 'p';
             al_play_sample(comer, 0.1, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
             jugador.puntaje += 10;
-        }
-        if (*(*(mapa + ((juego.coord_y - 70) / 5)) + ((juego.coord_x - 66) / 5) + 5) == 'Q') {
+            break;
+        case 'C':
+            *(*(mapa + ((juego.coord_y - 70) / 5)) + ((juego.coord_x - 66) / 5) + 5) = 'p';
+            al_play_sample(comer_fruta, 0.5, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
+            jugador.puntaje += 200;
+            break;
+        case 'L':
+            *(*(mapa + ((juego.coord_y - 70) / 5)) + ((juego.coord_x - 66) / 5) + 5) = 'p';
+            al_play_sample(comer_fruta, 0.5, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
+            jugador.puntaje += 500;
+            break;
+        case 'I':
+            *(*(mapa + ((juego.coord_y - 70) / 5)) + ((juego.coord_x - 66) / 5) + 5) = 'p';
+            al_play_sample(comer_fruta, 0.5, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
+            jugador.puntaje += 1000;
+            break;
+        case 'N':
+            *(*(mapa + ((juego.coord_y - 70) / 5)) + ((juego.coord_x - 66) / 5) + 5) = 'p';
+            al_play_sample(comer_fruta, 0.5, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
+            jugador.puntaje += 100;
+            break;
+        case 'V':
+            *(*(mapa + ((juego.coord_y - 70) / 5)) + ((juego.coord_x - 66) / 5) + 5) = 'p';
+            al_play_sample(comer_fruta, 0.5, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
+            jugador.puntaje += 100;
+            break;
+        case 'S':
+            *(*(mapa + ((juego.coord_y - 70) / 5)) + ((juego.coord_x - 66) / 5) + 5) = 'p';
+            al_play_sample(comer_fruta, 0.5, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
+            jugador.puntaje += 100;
+            break;
+        case 'H':
+            *(*(mapa + ((juego.coord_y - 70) / 5)) + ((juego.coord_x - 66) / 5) + 5) = 'p';
+            al_play_sample(comer_fruta, 0.5, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
+            jugador.puntaje += 100;
+            break;
+        case 'A':
+            *(*(mapa + ((juego.coord_y - 70) / 5)) + ((juego.coord_x - 66) / 5) + 5) = 'p';
+            al_play_sample(comer_fruta, 0.5, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
+            jugador.puntaje += 100;
+            break;
+        case 'Q':
             *(*(mapa + ((juego.coord_y - 70) / 5)) + ((juego.coord_x - 66) / 5) + 5) = 'p';
             tiempo_vulnerabilidad = 0;
 
@@ -1437,22 +1592,25 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
             clyde1.animacion = 0; if (clyde1.estado != 3) clyde1.estado = 2;
 
             estado_fantasmas = 2;
-            if(!vulnerabilidad) sonido_iniciado = false;
+            if (!vulnerabilidad) sonido_iniciado = false;
             al_stop_sample(&id1);
             al_play_sample(comer, 0.1, 0.5, 1, ALLEGRO_PLAYMODE_ONCE, NULL);
             jugador.puntaje += 50;
-        }
+            break;
+        } //Eventos al comer potenciadores, Pac-Dots o frutas.
+
         sprintf_s(juego.cifra, "%i", jugador.puntaje);
         sprintf_s(juego.impresion_nivel, "%i", jugador.nivel);
 
         if (movimiento_activado) {
             al_draw_bitmap(pacman[juego.animacion], juego.coord_x, juego.coord_y, NULL);
-        }
+        } //Impresión de PacMan.
         else {
             al_draw_bitmap(pacman[contador], juego.coord_x, juego.coord_y - 2, NULL);
             al_rest(0.1);
-        }
+        } //Animación de muerte.
 
+        //- Impresión de elementos en pantalla.
         (jugador.mapa_actual == 1) ? al_draw_bitmap(mapa1, 75, 80, NULL) : al_draw_bitmap(mapa2, 75, 80, NULL);
         al_draw_text(formato, al_map_rgb(255, 163, 1), 100, 20, NULL, "NOMBRE");
         al_draw_text(formato, al_map_rgb(255, 163, 1), 230, 20, NULL, "PUNTAJE");
@@ -1501,17 +1659,45 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
 
         for (int i = 0; i < 101; i++) {
             for (int j = 0; j < 91; j++) {
-                if (*(*(mapa + i) + j) == 'o' || *(*(mapa + i) + j) == 'q') {
+                switch (*(*(mapa + i) + j)) {
+                case 'o':
+                case 'q':
                     indicador = true;
                     (jugador.mapa_actual == 1) ? al_draw_bitmap(pac_dot, ((j - 5) * 5) + 73, (i * 5) + 76, NULL) : al_draw_bitmap(pac_dot, ((j - 5) * 5) + 72, (i * 5) + 76, NULL);
-                }
-                if (*(*(mapa + i) + j) == 'Q') {
+                    break;
+                case 'Q':
                     indicador = true;
                     (jugador.mapa_actual == 1) ? al_draw_bitmap(pastilla, ((j - 5) * 5) + 73, (i * 5) + 76, NULL) : al_draw_bitmap(pastilla, ((j - 5) * 5) + 72, (i * 5) + 76, NULL);
+                    break;
+                case 'A':
+                    (jugador.mapa_actual == 1) ? al_draw_bitmap(manzana, ((j - 5) * 5) + 73, (i * 5) + 76, NULL) : al_draw_bitmap(manzana, ((j - 5) * 5) + 70, (i * 5) + 71, NULL);
+                    break;
+                case 'C':
+                    (jugador.mapa_actual == 1) ? al_draw_bitmap(campana, ((j - 5) * 5) + 67, (i * 5) + 73, NULL) : al_draw_bitmap(campana, ((j - 5) * 5) + 67, (i * 5) + 74, NULL);
+                    break;
+                case 'I':
+                    (jugador.mapa_actual == 1) ? al_draw_bitmap(insignia, ((j - 5) * 5) + 67, (i * 5) + 69, NULL) : al_draw_bitmap(insignia, ((j - 5) * 5) + 66, (i * 5) + 69, NULL);
+                    break;
+                case 'H':
+                    (jugador.mapa_actual == 1) ? al_draw_bitmap(cereza, ((j - 5) * 5) + 73, (i * 5) + 76, NULL) : al_draw_bitmap(cereza, ((j - 5) * 5) + 66, (i * 5) + 72, NULL);
+                    break;
+                case 'L':
+                    (jugador.mapa_actual == 1) ? al_draw_bitmap(llave, ((j - 5) * 5) + 67, (i * 5) + 70, NULL) : al_draw_bitmap(llave, ((j - 5) * 5) + 66, (i * 5) + 70, NULL);
+                    break;
+                case 'V':
+                    (jugador.mapa_actual == 1) ? al_draw_bitmap(melon, ((j - 5) * 5) + 73, (i * 5) + 76, NULL) : al_draw_bitmap(melon, ((j - 5) * 5) + 65, (i * 5) + 68, NULL);
+                    break;
+                case 'N':
+                    (jugador.mapa_actual == 1) ? al_draw_bitmap(naranja, ((j - 5) * 5) + 67, (i * 5) + 73, NULL) : al_draw_bitmap(naranja, ((j - 5) * 5) + 69, (i * 5) + 69, NULL);
+                    break;
+                case 'S':
+                    (jugador.mapa_actual == 1) ? al_draw_bitmap(fresa, ((j - 5) * 5) + 66, (i * 5) + 70, NULL) : al_draw_bitmap(fresa, ((j - 5) * 5) + 68, (i * 5) + 70, NULL);
+                    break;
                 }
             }
         }
 
+        //- Eventos de teletransporte de PacMan.
         if (((juego.coord_y - 70) / 5) - 1 == 45 && (((juego.coord_x - 66) / 5) + 5) == 1) {
             juego.coord_x = (96 - 5) * 5 + 75;
         }
@@ -1539,7 +1725,7 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
         if (!juego_iniciado) {
             if(jugador.mapa_actual == 1 ) al_draw_bitmap(marcador, 253, 255, NULL);
             else al_draw_bitmap(marcador, 253, 270, NULL);
-        }
+        } //Impresión de la leyenda "Ready!".
 
         switch (estado_fantasmas) {
         case 1:
@@ -1562,13 +1748,13 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
             if (blinky1.estado == 2) al_draw_bitmap(fantasma_afectado[blinky1.animacion], blinky1.coord_x, blinky1.coord_y, NULL);
             else if (blinky1.estado == 3) al_draw_bitmap(fantasma_comido, blinky1.coord_x, blinky1.coord_y, NULL);
             else al_draw_bitmap(blinky[blinky1.animacion], blinky1.coord_x, blinky1.coord_y, NULL);
-            break;
+            break; //Impresiones de las animaciones de los fantasmas.
         case 2:
             if (!sonido_iniciado) {
                 if (movimiento_activado) al_play_sample(potenciador, 0.5, 0.5, 1, ALLEGRO_PLAYMODE_LOOP, &id2);
                 sonido_iniciado = true;
                 vulnerabilidad = true;
-            } 
+            } //Control del temporizador para el potenciador.
             if (blinky1.estado != 2 && pinky1.estado != 2 && inky1.estado != 2 && clyde1.estado != 2 && !juego_pausado) tiempo_vulnerabilidad = 200;
             if (tiempo_vulnerabilidad < 175) {
                 if (pinky1.estado == 2) al_draw_bitmap(fantasma_afectado[pinky1.animacion], pinky1.coord_x, pinky1.coord_y, NULL);
@@ -1586,7 +1772,7 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
                 if (blinky1.estado == 2) al_draw_bitmap(fantasma_afectado[blinky1.animacion], blinky1.coord_x, blinky1.coord_y, NULL);
                 else if (blinky1.estado == 3) al_draw_bitmap(fantasma_comido, blinky1.coord_x, blinky1.coord_y, NULL);
                 else al_draw_bitmap(blinky[blinky1.animacion], blinky1.coord_x, blinky1.coord_y, NULL);
-            }
+            } //Impresión de fantasmas en color azul.
             else {
                 if (tiempo_vulnerabilidad % 5 != 0) {
                     if (pinky1.estado == 2) al_draw_bitmap(fantasma_afectado[pinky1.animacion], pinky1.coord_x, pinky1.coord_y, NULL);
@@ -1621,7 +1807,7 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
                     if (blinky1.estado == 2) al_draw_bitmap(fantasma_recuperacion[blinky1.animacion], blinky1.coord_x, blinky1.coord_y, NULL);
                     else if (blinky1.estado == 3) al_draw_bitmap(fantasma_comido, blinky1.coord_x, blinky1.coord_y, NULL);
                     else al_draw_bitmap(blinky[blinky1.animacion], blinky1.coord_x, blinky1.coord_y, NULL);
-                }
+                } // Impresión del parpadeo de fantasmas vulnerables.
             }
 
             if (tiempo_vulnerabilidad == 200) {
@@ -1637,7 +1823,7 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
                 if (inky1.estado == 2) inky1.estado = 1;
                 if (pinky1.estado == 2) pinky1.estado = 1;
                 if (clyde1.estado == 2) clyde1.estado = 1;
-            }
+            } //Finalización de potenciador.
             break;
         }
 
@@ -1649,9 +1835,9 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
         if (contador == 27) {
             jugador.vidas--;
             return true;
-        }
+        } //Pérdida de vida.
 
-        if (!indicador) juego.continuar_nivel = false;
+        if (!indicador) juego.continuar_nivel = false; //Finalización correcta del nivel.
     }
     switch (estado_fantasmas) {
     case 1: al_stop_sample(&id1); break;
@@ -1660,25 +1846,27 @@ bool movimiento_pacman(char *mapa[], Datos &jugador, Movimiento &juego, int velo
     return false;
 }
 
+//Verificación del estado actual de los fantasmas. El contacto con ellos puede ocasionar la pérdida de una vida o bonificación.
 bool verificar_muerte(char* mapa[], Movimiento juego, Fantasma enemigo, bool movimiento_activado) {
     if (((((juego.coord_x - 66) / 5) + 5) == (((enemigo.coord_x - 66) / 5) + 5) || (((juego.coord_x - 66) / 5) + 6) == (((enemigo.coord_x - 66) / 5) + 5) || (((juego.coord_x - 66) / 5) + 5) == (((enemigo.coord_x - 66) / 5) + 6)) && ((((juego.coord_y - 70) / 5)) == (((enemigo.coord_y - 70) / 5)) || (((juego.coord_y - 70) / 5) + 1) == ((enemigo.coord_y - 70) / 5) || ((juego.coord_y - 70) / 5) == (((enemigo.coord_y - 70) / 5) + 1)) && movimiento_activado) {
         return true;
-    }
+    } //Fantasma colisionado.
     else {
         return false;
-    }
+    } //El fantasma no colisíonó con PacMan.
 }
 
+//Gestiona el comportamiento de los fantasmas.
 void mover_fantasma(char* mapa[], Movimiento juego, Datos jugador, int velocidad, Fantasma& enemigo, bool juego_iniciado, bool movimiento_activado, bool juego_pausado){
     if ((mapa[(enemigo.coord_y - 70) / 5][((enemigo.coord_x - 66) / 5) + 5] == 'p' || mapa[(enemigo.coord_y - 70) / 5][((enemigo.coord_x - 66) / 5) + 5] == 'Q' || mapa[(enemigo.coord_y - 70) / 5][((enemigo.coord_x - 66) / 5) + 5] == 'q') && !enemigo.giro && !juego_pausado) {
         enemigo.direccion = conversion();
         enemigo.giro = true;
-    }
+    } //Verificar si el fantasma giró.
     if (enemigo.giro && !juego_pausado) enemigo.retraso++;
     if (enemigo.retraso == 6) {
         enemigo.retraso = 0;
         enemigo.giro = false;
-    }
+    } //Retraso de giro.
     if (jugador.mapa_actual == 1) {
        if (((enemigo.coord_y - 70) / 5) == 46 && (((enemigo.coord_x - 66) / 5) + 5) == 49 && !juego_pausado) {
             enemigo.direccion = arriba_s;
@@ -1688,7 +1876,7 @@ void mover_fantasma(char* mapa[], Movimiento juego, Datos jugador, int velocidad
         if (((enemigo.coord_y - 70) / 5) == 49 && (((enemigo.coord_x - 66) / 5) + 5) == 48 && !juego_pausado) {
             enemigo.direccion = arriba_s;
         }
-    }
+    } //Movimientos predeterminados para que los fantasmas crucen la puerta.
    
     switch (enemigo.direccion) {
     case abajo_s:
@@ -1706,41 +1894,42 @@ void mover_fantasma(char* mapa[], Movimiento juego, Datos jugador, int velocidad
                     enemigo.direccion = conversion();
                 }
             }
-        }
+        } //El fantasma actual se direcciona hacia abajo.
         else {
             if (!juego_pausado && enemigo.movimiento) enemigo.direccion = conversion();
-        }
+        } //El movimiento se aleatoriza.
         break;
     case arriba_s:
         if (*(*(mapa + ((enemigo.coord_y - 70) / 5) - 1) + ((enemigo.coord_x - 66) / 5) + 5) != '*' && ((enemigo.coord_y - 70) / 5) - 1 >= 0 && movimiento_activado && juego_iniciado && !juego_pausado && enemigo.movimiento) {
             enemigo.coord_y -= velocidad;
             enemigo.animacion++;
-        }
+        } //El fantasma actual se direcciona hacia arriba.
         else {
             if (!juego_pausado && enemigo.movimiento) enemigo.direccion = conversion();
-        }
+        } //El movimiento se aleatoriza.
         break;
     case derecha_s:
         if (*(*(mapa + (enemigo.coord_y - 70) / 5) + ((enemigo.coord_x - 66) / 5) + 1 + 5) != '*' && ((enemigo.coord_x - 66) / 5) + 1 + 5 <= 100 && movimiento_activado && juego_iniciado && !juego_pausado && enemigo.movimiento) {
             enemigo.coord_x += velocidad;
             enemigo.animacion++;
-        }
+        } //El fantasma actual se direcciona hacia la derecha.
         else {
             if (!juego_pausado && enemigo.movimiento) enemigo.direccion = conversion();
-        }
+        } //El movimiento se aleatoriza.
         break;
     case izquierda_s:
         if (*(*(mapa + (enemigo.coord_y - 70) / 5) + ((enemigo.coord_x - 66) / 5) - 1 + 5) != '*' && ((enemigo.coord_x - 66) / 5) - 1 + 5 >= 0 && movimiento_activado && juego_iniciado && !juego_pausado && enemigo.movimiento) {
             enemigo.coord_x -= velocidad;
             enemigo.animacion++;
-        }
+        } //El fantasma actual se direcciona hacia la izquierda.
         else {
             if (!juego_pausado && enemigo.movimiento) enemigo.direccion = conversion();
-        }
+        } //El movimiento se aleatoriza.
         break;
     }
 }
 
+//Delimita las zonas de teletransporte para los fantasmas.
 void definir_teletransporte_fantasmas(char* mapa[], Fantasma& enemigo) {
     if (((enemigo.coord_y - 70) / 5) - 1 == 45 && (((enemigo.coord_x - 66) / 5) + 5) == 1) {
         enemigo.coord_x = (96 - 5) * 5 + 75;
@@ -1776,6 +1965,7 @@ movimiento_fantasmas conversion() {
     return direccion;
 }
 
+//Se genera un código para la reanudación de las partidas.
 Codigo generar_codigo() {
     Codigo clave;
     char cadena[7] = "";
@@ -1789,22 +1979,24 @@ Codigo generar_codigo() {
     return clave;
 }
 
+//Aleatoriza caracteres alfanuméricos para generar aleatoriamente cada contraseña.
 char letras_aleatorias() {
     int x = rand() % (26) + 1;
 
     switch (x) {
-    case 1: return 'A'; break; case 2: return 'B'; break; case 3: return 'C'; break;
+    case 2: return 'B'; break; case 3: return 'C'; break;
     case 4: return '3'; break; case 5: return 'E'; break; case 6: return 'F'; break;
     case 7: return 'G'; break; case 8: return '4'; break; case 9: return 'I'; break;
     case 10: return 'J'; break; case 11: return 'K'; break; case 12: return 'L'; break;
     case 13: return '1'; break; case 14: return '2'; break; case 15: return '6'; break;
-    case 16: return 'P'; break; case 17: return 'Q'; break; case 18: return 'R'; break;
-    case 19: return 'S'; break; case 20: return 'T'; break; case 21: return '9'; break;
+    case 16: return 'P'; break; case 17: return 'Q'; break; case 18: return '7'; break;
+    case 19: return 'S'; break; case 21: return '9'; break;
     case 22: return '8'; break; case 23: return '2'; break; case 24: return 'X'; break;
     case 25: return '6'; break; case 26: return 'Z'; break; default: return '1';
     }
 }
 
+//Permite que los usuarios puedan reanudar sus partidas.
 Datos continuar(ALLEGRO_DISPLAY* pantalla) {
     Datos solicitud, auxiliar;
     bool encontrado = false;
@@ -1812,9 +2004,9 @@ Datos continuar(ALLEGRO_DISPLAY* pantalla) {
     FILE * contrasenias = fopen("contraseñas.dat", "rb");
     if (!contrasenias) contrasenias = fopen("contraseñas.dat", "ab");
     fclose(contrasenias);
-    contrasenias = fopen("contraseñas.dat", "rb");
+    contrasenias = fopen("contraseñas.dat", "rb"); //Se asegura la apertura del archivo para la lectura de contraseñas.
 
-    solicitud = preguntar_nombre(pantalla, 2);
+    solicitud = preguntar_nombre(pantalla, 2); //Se solicita el nombre y contraseña a validar.
 
     fread(&auxiliar, sizeof(Datos), 1, contrasenias);
     while (!feof(contrasenias)) {
@@ -1823,15 +2015,16 @@ Datos continuar(ALLEGRO_DISPLAY* pantalla) {
             break;
         }
         fread(&auxiliar, sizeof(Datos), 1, contrasenias);
-    }
+    } //Validación de los datos ingresados.
 
     if (!encontrado) {
         auxiliar.mapa_actual = -1;
-    }
+    } //Se invalida la contraseña y/o usuario.
     fclose(contrasenias);
     return auxiliar;
 }
 
+//Muestra el ranking de las ocho puntuaciones más altas registradas.
 void checar_records(ALLEGRO_DISPLAY* pantalla, FILE* registro) {
     Datos lista;
     bool regresar_menu = false, reanudar;
@@ -1853,11 +2046,11 @@ void checar_records(ALLEGRO_DISPLAY* pantalla, FILE* registro) {
     fseek(registro, 0, SEEK_END);
     contador = ftell(registro) / sizeof(Datos);
 
-    int* valores = new int[contador];
+    int* valores = new int[contador]; 
     char** nombres = new char* [contador];
     for (int i = 0; i < contador; i++) {
         *(nombres + i) = new char[7];
-    }
+    } // Matriz para el almacenamiento temporal de los nombres.
     contador = 0;
 
     if (ftell(registro) > 0) {
@@ -1868,7 +2061,7 @@ void checar_records(ALLEGRO_DISPLAY* pantalla, FILE* registro) {
             strcpy_s(nombres[contador], 7, lista.nombre);
             fread(&lista, sizeof(Datos), 1, registro); 
             if (!feof(registro)) contador++;
-        }
+        } //Extracción de todos los nombres y puntuaciones almacenados.
         rewind(registro);
 
         if (contador > 0) {
@@ -1886,7 +2079,7 @@ void checar_records(ALLEGRO_DISPLAY* pantalla, FILE* registro) {
                 strcpy_s(nombres[i], 7, nombres[mayor]);
                 strcpy_s(nombres[mayor], 7, auxiliar);
             }
-        }
+        } //Ordenamiento del ranking.
 
         if (contador >= 8) {
             for (int i = 0; i < 8; i++) {
@@ -1901,7 +2094,7 @@ void checar_records(ALLEGRO_DISPLAY* pantalla, FILE* registro) {
                 al_draw_text(formato, al_map_rgb(255, 255, 39), 200, 325 + (i * 27), NULL, nombres[i]);
                 al_draw_text(formato, al_map_rgb(255, 255, 39), 340, 325 + (i * 27), NULL, cifra);
             }
-        }   
+        } //Impresión de las puntuaciones en forma de ranking.
     }
 
     al_flip_display();
@@ -1920,8 +2113,8 @@ void checar_records(ALLEGRO_DISPLAY* pantalla, FILE* registro) {
                 al_clear_to_color(al_map_rgb(0, 0, 0));
                 al_flip_display();
                 al_rest(0.3);
-            }
-            break;
+            } //Se regresa al menú principal si se presiona "Enter".
+            break; 
         case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
             reanudar = false;
             while (!reanudar) {
@@ -1955,6 +2148,11 @@ void checar_records(ALLEGRO_DISPLAY* pantalla, FILE* registro) {
             break;
         }
     }
+    delete valores;
+    for (int i = 0; i < contador++; i++) {
+        delete[] nombres[i];
+    }
+    delete[] nombres;
     rewind(registro);
     fclose(registro);
 }
