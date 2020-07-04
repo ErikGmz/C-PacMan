@@ -2149,7 +2149,7 @@ void checar_records(ALLEGRO_DISPLAY* pantalla, FILE* registro) {
         }
     }
     delete valores;
-    for (int i = 0; i < contador++; i++) {
+    for (int i = 0; i < contador; i++) {
         delete[] nombres[i];
     }
     delete[] nombres;
