@@ -368,6 +368,7 @@ void comenzar_juego(ALLEGRO_DISPLAY* pantalla, FILE* registro, Datos jugador) {
     ALLEGRO_FONT* formato2 = al_load_ttf_font("fonts/04B_30__.ttf", 15, NULL);
     ALLEGRO_FONT* formato3 = al_load_ttf_font("fonts/04B_30__.ttf", 13, NULL);
     al_register_event_source(fila_evento, al_get_keyboard_event_source());
+    al_register_event_source(fila_evento, al_get_display_event_source(pantalla));
 
     registro = fopen("registro.dat", "rb+"); //Apertura del archivo para el registro de récords.
 
